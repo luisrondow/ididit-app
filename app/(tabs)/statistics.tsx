@@ -192,9 +192,15 @@ export default function StatisticsScreen() {
 
               {/* Empty state */}
               {habits.length === 0 && (
-                <View className="bg-card border border-border rounded-lg p-6 items-center justify-center">
-                  <Text className="text-muted-foreground text-center">
-                    No habits yet. Create your first habit to see statistics!
+                <View className="bg-card border border-border rounded-2xl p-8 items-center justify-center">
+                  <View className="bg-primary/10 rounded-full p-4 mb-4">
+                    <Icon as={TrendingUp} className="size-12 text-primary" />
+                  </View>
+                  <Text className="text-xl font-bold text-foreground text-center mb-2">
+                    No Stats Yet
+                  </Text>
+                  <Text className="text-sm text-muted-foreground text-center max-w-[280px]">
+                    Start tracking habits to see your progress and insights here!
                   </Text>
                 </View>
               )}

@@ -8,6 +8,8 @@ import type { Habit } from '@/types/models';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming } from 'react-native-reanimated';
 
 interface HabitCardProps {
   habit: Habit;
@@ -22,12 +24,27 @@ interface HabitCardProps {
 export function HabitCard({ habit, completionCount = 0, currentStreak = 0, onDelete, onArchive, onLog, onPress }: HabitCardProps) {
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
+  const scale = useSharedValue(1);
 
   const isCompleted = completionCount >= habit.targetFrequency;
   const progressText = `${completionCount}/${habit.targetFrequency}`;
 
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
   const handleLog = (e: any) => {
     e.stopPropagation();
+
+    // Haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    // Animation
+    scale.value = withSequence(
+      withTiming(1.2, { duration: 100 }),
+      withSpring(1, { damping: 8, stiffness: 200 })
+    );
+
     if (onLog) {
       onLog(habit.id);
     }
@@ -63,22 +80,36 @@ export function HabitCard({ habit, completionCount = 0, currentStreak = 0, onDel
   };
 
   return (
-    <Pressable onPress={onPress}>
-      <View className="bg-card border border-border rounded-lg p-4 mb-3">
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${habit.name}. ${getTimeRangeLabel()}. ${currentStreak > 0 ? `${currentStreak} day streak` : 'No current streak'}`}
+      accessibilityHint="Double tap to view habit details"
+    >
+      <View className="bg-card border border-border rounded-lg p-5 mb-4 shadow-sm">
         <View className="flex-row items-start justify-between">
           <View className="flex-1">
             <View className="flex-row items-center justify-between mb-1">
               <Text className="text-lg font-semibold text-foreground">{habit.name}</Text>
               {onLog && (
                 <View className="flex-row items-center gap-2">
-                  <Text className={`text-sm font-medium ${isCompleted ? 'text-green-600' : 'text-muted-foreground'}`}>
+                  <Text className={`text-sm font-medium ${isCompleted ? 'text-success' : 'text-muted-foreground'}`}>
                     {progressText}
                   </Text>
-                  <Pressable onPress={handleLog}>
-                    <Icon
-                      as={isCompleted ? CheckCircle2 : Circle}
-                      className={`size-8 ${isCompleted ? 'text-green-600' : 'text-muted-foreground'}`}
-                    />
+                  <Pressable
+                    onPress={handleLog}
+                    className="p-1 -m-1"
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Log ${habit.name}. Current progress: ${progressText}`}
+                    accessibilityHint={isCompleted ? 'Already completed for today' : 'Double tap to log completion'}
+                  >
+                    <Animated.View style={animatedStyle}>
+                      <Icon
+                        as={isCompleted ? CheckCircle2 : Circle}
+                        className={`size-10 ${isCompleted ? 'text-success' : 'text-muted-foreground'}`}
+                      />
+                    </Animated.View>
                   </Pressable>
                 </View>
               )}
@@ -99,8 +130,8 @@ export function HabitCard({ habit, completionCount = 0, currentStreak = 0, onDel
               </View>
               {currentStreak > 0 && (
                 <View className="bg-orange-100 dark:bg-orange-900/30 px-2 py-1 rounded flex-row items-center gap-1">
-                  <Icon as={Flame} className="size-3 text-orange-600 dark:text-orange-400" />
-                  <Text className="text-xs text-orange-600 dark:text-orange-400 font-medium">
+                  <Icon as={Flame} className="size-3 text-streak" />
+                  <Text className="text-xs text-streak font-medium">
                     {currentStreak} {currentStreak === 1 ? 'day' : 'days'}
                   </Text>
                 </View>
@@ -123,21 +154,30 @@ export function HabitCard({ habit, completionCount = 0, currentStreak = 0, onDel
             <Button
               size="icon"
               variant="ghost"
-              className="h-8 w-8"
-              onPress={() => setShowMenu(!showMenu)}>
+              className="h-10 w-10"
+              onPress={() => setShowMenu(!showMenu)}
+              accessibilityRole="button"
+              accessibilityLabel={`${habit.name} options menu`}
+              accessibilityHint="Double tap to open menu with edit, archive, and delete options">
               <Icon as={MoreVertical} className="size-4" />
             </Button>
             {showMenu && (
               <View className="absolute right-0 top-10 bg-card border border-border rounded-lg shadow-lg min-w-[140px] z-50">
                 <Pressable
                   onPress={handleEdit}
-                  className="flex-row items-center gap-2 px-3 py-2 active:bg-accent">
+                  className="flex-row items-center gap-2 px-3 py-2 active:bg-accent"
+                  accessibilityRole="button"
+                  accessibilityLabel={`Edit ${habit.name}`}
+                  accessibilityHint="Double tap to edit this habit">
                   <Icon as={Edit} className="size-4 text-foreground" />
                   <Text className="text-sm text-foreground">Edit</Text>
                 </Pressable>
                 <Pressable
                   onPress={handleArchive}
-                  className="flex-row items-center gap-2 px-3 py-2 active:bg-accent">
+                  className="flex-row items-center gap-2 px-3 py-2 active:bg-accent"
+                  accessibilityRole="button"
+                  accessibilityLabel={`${habit.isArchived ? 'Unarchive' : 'Archive'} ${habit.name}`}
+                  accessibilityHint={`Double tap to ${habit.isArchived ? 'restore' : 'archive'} this habit`}>
                   <Icon
                     as={habit.isArchived ? ArchiveRestore : Archive}
                     className="size-4 text-foreground"
@@ -149,7 +189,10 @@ export function HabitCard({ habit, completionCount = 0, currentStreak = 0, onDel
                 <View className="h-px bg-border" />
                 <Pressable
                   onPress={handleDelete}
-                  className="flex-row items-center gap-2 px-3 py-2 active:bg-accent">
+                  className="flex-row items-center gap-2 px-3 py-2 active:bg-accent"
+                  accessibilityRole="button"
+                  accessibilityLabel={`Delete ${habit.name}`}
+                  accessibilityHint="Double tap to permanently delete this habit">
                   <Icon as={Trash2} className="size-4 text-destructive" />
                   <Text className="text-sm text-destructive">Delete</Text>
                 </Pressable>

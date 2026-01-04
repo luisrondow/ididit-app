@@ -9,7 +9,7 @@ import { CalendarHeatmap } from '@/components/calendar-heatmap';
 import { getMultiHabitHeatmapData } from '@/lib/repositories/stats-repository';
 import type { HeatmapData } from '@/types/models';
 import { subtractMonthsFromDate, startOfDay, endOfDay } from '@/lib/utils/date-helpers';
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react-native';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 
@@ -83,6 +83,18 @@ export default function CalendarScreen() {
           {isLoading && heatmapData.length === 0 ? (
             <View className="bg-card border border-border rounded-lg p-6 items-center justify-center min-h-[200px]">
               <Text className="text-muted-foreground">Loading calendar...</Text>
+            </View>
+          ) : heatmapData.length === 0 ? (
+            <View className="bg-card border border-border rounded-2xl p-8 items-center justify-center min-h-[300px]">
+              <View className="bg-primary/10 rounded-full p-4 mb-4">
+                <Icon as={CalendarIcon} className="size-12 text-primary" />
+              </View>
+              <Text className="text-xl font-bold text-foreground text-center mb-2">
+                Your Calendar Awaits
+              </Text>
+              <Text className="text-sm text-muted-foreground text-center max-w-[280px]">
+                Start logging habits to see your activity patterns and streaks visualized here!
+              </Text>
             </View>
           ) : (
             <>
