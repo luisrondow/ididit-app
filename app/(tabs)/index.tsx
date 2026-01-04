@@ -171,8 +171,10 @@ export default function DashboardScreen() {
                   onArchive={handleArchive}
                   onLog={handleLog}
                   onPress={() => {
-                    // TODO: Navigate to habit detail view
-                    console.log('Navigate to habit detail:', habit.id);
+                    router.push({
+                      pathname: '/habit/detail/[id]',
+                      params: { id: habit.id },
+                    });
                   }}
                 />
               ))}
