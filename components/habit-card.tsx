@@ -5,7 +5,7 @@ import { Text } from '@/components/ui/text';
 import { MoreVertical, Archive, Trash2, Edit, ArchiveRestore, CheckCircle2, Circle, Flame } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
 import type { Habit } from '@/types/models';
-import { useState } from 'react';
+import { useState, memo, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'expo-router';
 
@@ -19,48 +19,48 @@ interface HabitCardProps {
   onPress?: () => void;
 }
 
-export function HabitCard({ habit, completionCount = 0, currentStreak = 0, onDelete, onArchive, onLog, onPress }: HabitCardProps) {
+export const HabitCard = memo(function HabitCard({ habit, completionCount = 0, currentStreak = 0, onDelete, onArchive, onLog, onPress }: HabitCardProps) {
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
 
-  const isCompleted = completionCount >= habit.targetFrequency;
-  const progressText = `${completionCount}/${habit.targetFrequency}`;
+  const isCompleted = useMemo(() => completionCount >= habit.targetFrequency, [completionCount, habit.targetFrequency]);
+  const progressText = useMemo(() => `${completionCount}/${habit.targetFrequency}`, [completionCount, habit.targetFrequency]);
 
-  const handleLog = (e: any) => {
+  const handleLog = useCallback((e: any) => {
     e.stopPropagation();
     if (onLog) {
       onLog(habit.id);
     }
-  };
+  }, [onLog, habit.id]);
 
-  const getTimeRangeLabel = () => {
+  const timeRangeLabel = useMemo(() => {
     if (habit.timeRange === 'custom' && habit.customTimeRange) {
       return `${habit.customTimeRange.value} ${habit.customTimeRange.unit}`;
     }
     return habit.timeRange.charAt(0).toUpperCase() + habit.timeRange.slice(1);
-  };
+  }, [habit.timeRange, habit.customTimeRange]);
 
-  const handleEdit = () => {
+  const handleEdit = useCallback(() => {
     setShowMenu(false);
     router.push({
       pathname: '/habit/[id]',
       params: { id: habit.id },
     });
-  };
+  }, [router, habit.id]);
 
-  const handleDelete = () => {
+  const handleDelete = useCallback(() => {
     setShowMenu(false);
     if (onDelete) {
       onDelete(habit.id);
     }
-  };
+  }, [onDelete, habit.id]);
 
-  const handleArchive = () => {
+  const handleArchive = useCallback(() => {
     setShowMenu(false);
     if (onArchive) {
       onArchive(habit.id, !habit.isArchived);
     }
-  };
+  }, [onArchive, habit.id, habit.isArchived]);
 
   return (
     <Pressable onPress={onPress}>
@@ -90,7 +90,7 @@ export function HabitCard({ habit, completionCount = 0, currentStreak = 0, onDel
             )}
             <View className="flex-row items-center gap-3 mt-2">
               <View className="bg-primary/10 px-2 py-1 rounded">
-                <Text className="text-xs text-primary font-medium">{getTimeRangeLabel()}</Text>
+                <Text className="text-xs text-primary font-medium">{timeRangeLabel}</Text>
               </View>
               <View className="bg-secondary px-2 py-1 rounded">
                 <Text className="text-xs text-secondary-foreground font-medium">
@@ -160,4 +160,4 @@ export function HabitCard({ habit, completionCount = 0, currentStreak = 0, onDel
       </View>
     </Pressable>
   );
-}
+});

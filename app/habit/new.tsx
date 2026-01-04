@@ -1,6 +1,6 @@
 // Create new habit screen
 
-import { View, ScrollView, Pressable, Alert } from 'react-native';
+import { View, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/ui/text';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,8 @@ import type { Habit } from '@/types/models';
 import { validateHabit } from '@/lib/utils/validators';
 import { ArrowLeft } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
+import { useToast } from '@/lib/context/toast-context';
+import { haptics } from '@/lib/utils/haptics';
 
 const TIME_RANGES = [
   { value: 'daily', label: 'Daily' },
@@ -30,6 +32,7 @@ const CUSTOM_UNITS = [
 
 export default function NewHabitScreen() {
   const router = useRouter();
+  const toast = useToast();
   const { addHabit } = useHabitsStore();
 
   const [name, setName] = useState('');
@@ -79,9 +82,12 @@ export default function NewHabitScreen() {
 
     try {
       await addHabit(newHabit);
+      haptics.success();
+      toast.success('Habit created successfully!');
       router.back();
     } catch (error) {
-      Alert.alert('Error', 'Failed to create habit');
+      haptics.error();
+      toast.error('Failed to create habit');
       console.error('Error creating habit:', error);
     } finally {
       setIsLoading(false);

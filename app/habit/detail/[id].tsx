@@ -1,6 +1,6 @@
 // Habit detail screen with binary heatmap and statistics
 
-import { View, ScrollView, Alert } from 'react-native';
+import { View, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -16,10 +16,13 @@ import { getLogEntriesByHabitId } from '@/lib/repositories/log-repository';
 import { calculateStreak } from '@/lib/utils/streak-calculator';
 import type { HeatmapData } from '@/types/models';
 import { subtractMonthsFromDate, startOfDay, endOfDay } from '@/lib/utils/date-helpers';
+import { useToast } from '@/lib/context/toast-context';
+import { Skeleton, SkeletonText } from '@/components/ui/skeleton';
 
 export default function HabitDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const toast = useToast();
   const { getHabit } = useHabitsStore();
 
   const [habit, setHabit] = useState<Habit | null>(null);
@@ -42,7 +45,7 @@ export default function HabitDetailScreen() {
       // Load habit
       const loadedHabit = await getHabit(id);
       if (!loadedHabit) {
-        Alert.alert('Error', 'Habit not found');
+        toast.error('Habit not found');
         router.back();
         return;
       }
@@ -67,7 +70,7 @@ export default function HabitDetailScreen() {
       setTotalCompletions(stats.totalCompletions);
     } catch (error) {
       console.error('Error loading habit details:', error);
-      Alert.alert('Error', 'Failed to load habit details');
+      toast.error('Failed to load habit details');
     } finally {
       setIsLoading(false);
     }
@@ -85,9 +88,38 @@ export default function HabitDetailScreen() {
   if (isLoading || !habit) {
     return (
       <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-        <View className="flex-1 items-center justify-center">
-          <Text className="text-foreground">Loading...</Text>
+        <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
+          <Skeleton width={40} height={40} rounded="full" />
+          <Skeleton width={120} height={24} />
+          <Skeleton width={40} height={40} rounded="full" />
         </View>
+        <ScrollView className="flex-1 p-4">
+          <View className="gap-4">
+            {/* Header Skeleton */}
+            <View className="bg-card border border-border rounded-lg p-4 gap-3">
+              <Skeleton width={200} height={28} />
+              <SkeletonText lines={2} />
+            </View>
+            {/* Stats Skeleton */}
+            <View className="flex-row gap-3">
+              <View className="flex-1 bg-card border border-border rounded-lg p-4 gap-2">
+                <Skeleton width={40} height={40} rounded="full" />
+                <Skeleton width={50} height={24} />
+                <Skeleton width="100%" height={12} />
+              </View>
+              <View className="flex-1 bg-card border border-border rounded-lg p-4 gap-2">
+                <Skeleton width={40} height={40} rounded="full" />
+                <Skeleton width={50} height={24} />
+                <Skeleton width="100%" height={12} />
+              </View>
+            </View>
+            {/* Heatmap Skeleton */}
+            <View className="bg-card border border-border rounded-lg p-4 gap-3">
+              <Skeleton width={100} height={20} />
+              <Skeleton width="100%" height={200} />
+            </View>
+          </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
