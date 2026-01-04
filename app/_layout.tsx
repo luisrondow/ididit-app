@@ -11,6 +11,19 @@ import { useEffect, useState } from 'react';
 import { View, Text } from 'react-native';
 import { ToastProvider } from '@/lib/context/toast-context';
 import { ErrorBoundary as AppErrorBoundary } from '@/components/error-boundary';
+import { useFonts } from 'expo-font';
+import {
+  JetBrainsMono_400Regular,
+  JetBrainsMono_500Medium,
+  JetBrainsMono_600SemiBold,
+  JetBrainsMono_700Bold,
+} from '@expo-google-fonts/jetbrains-mono';
+import {
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+} from '@expo-google-fonts/plus-jakarta-sans';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -21,6 +34,17 @@ export default function RootLayout() {
   const { colorScheme } = useColorScheme();
   const [isDbInitialized, setIsDbInitialized] = useState(false);
   const [dbError, setDbError] = useState<string | null>(null);
+
+  const [fontsLoaded] = useFonts({
+    JetBrainsMono_400Regular,
+    JetBrainsMono_500Medium,
+    JetBrainsMono_600SemiBold,
+    JetBrainsMono_700Bold,
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+  });
 
   useEffect(() => {
     // Initialize database on app start
@@ -44,7 +68,7 @@ export default function RootLayout() {
     );
   }
 
-  if (!isDbInitialized) {
+  if (!isDbInitialized || !fontsLoaded) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
         <Text className="text-foreground text-lg">Loading...</Text>

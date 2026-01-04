@@ -10,9 +10,8 @@ interface CalendarHeatmapProps {
   showMonthLabels?: boolean;
 }
 
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const CELL_SIZE = 12;
-const CELL_GAP = 2;
+const CELL_SIZE = 14;
+const CELL_GAP = 3;
 
 export function CalendarHeatmap({ data, showMonthLabels = true }: CalendarHeatmapProps) {
   // Group data by week
@@ -77,60 +76,72 @@ export function CalendarHeatmap({ data, showMonthLabels = true }: CalendarHeatma
   const getCellColor = (day: HeatmapData) => {
     if (!day.date) return 'bg-transparent';
 
-    // Multi-tone based on intensity (0-4)
+    // Multi-tone based on intensity (0-4) using heatmap colors
     switch (day.intensity) {
       case 0:
-        return 'bg-muted';
+        return 'bg-heatmap-0';
       case 1:
-        return 'bg-green-200 dark:bg-green-900/40';
+        return 'bg-heatmap-1';
       case 2:
-        return 'bg-green-400 dark:bg-green-700/60';
+        return 'bg-heatmap-2';
       case 3:
-        return 'bg-green-500 dark:bg-green-600/80';
+        return 'bg-heatmap-3';
       case 4:
-        return 'bg-green-600 dark:bg-green-500';
+        return 'bg-heatmap-4';
       default:
-        return 'bg-muted';
+        return 'bg-heatmap-0';
     }
   };
 
   return (
-    <View className="bg-card border border-border rounded-lg p-4">
-      <Text className="text-sm font-semibold text-foreground mb-3">Activity Overview</Text>
+    <View className="bg-card border border-border rounded-lg p-5">
+      <Text variant="h4" className="text-foreground mb-4">Activity Overview</Text>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View>
           {/* Month labels */}
           {showMonthLabels && (
-            <View className="flex-row mb-2" style={{ height: 14 }}>
+            <View className="flex-row mb-3" style={{ height: 16 }}>
               {monthLabels.map((month) => (
                 <View
                   key={`${month.label}-${month.weekIndex}`}
                   style={{
                     position: 'absolute',
-                    left: month.weekIndex * (CELL_SIZE + CELL_GAP),
+                    left: 28 + month.weekIndex * (CELL_SIZE + CELL_GAP),
                   }}>
-                  <Text className="text-xs text-muted-foreground">{month.label}</Text>
+                  <Text variant="caption" className="text-muted-foreground font-mono">
+                    {month.label}
+                  </Text>
                 </View>
               ))}
             </View>
           )}
 
           {/* Heatmap grid */}
-          <View className="flex-row gap-0.5">
+          <View className="flex-row">
             {/* Day labels */}
-            <View className="mr-2">
-              {DAYS.map((day, index) => (
+            <View className="mr-3">
+              {[0, 1, 2, 3, 4, 5, 6].map((dayIndex) => (
                 <View
-                  key={day}
+                  key={dayIndex}
                   style={{
                     height: CELL_SIZE,
                     marginBottom: CELL_GAP,
                     justifyContent: 'center',
                   }}>
-                  {index % 2 === 1 && (
-                    <Text className="text-xs text-muted-foreground" style={{ fontSize: 9 }}>
-                      {day}
+                  {dayIndex === 1 && (
+                    <Text variant="caption" className="text-muted-foreground font-mono">
+                      Mon
+                    </Text>
+                  )}
+                  {dayIndex === 3 && (
+                    <Text variant="caption" className="text-muted-foreground font-mono">
+                      Wed
+                    </Text>
+                  )}
+                  {dayIndex === 5 && (
+                    <Text variant="caption" className="text-muted-foreground font-mono">
+                      Fri
                     </Text>
                   )}
                 </View>
@@ -156,16 +167,16 @@ export function CalendarHeatmap({ data, showMonthLabels = true }: CalendarHeatma
           </View>
 
           {/* Legend */}
-          <View className="flex-row items-center gap-2 mt-3">
-            <Text className="text-xs text-muted-foreground">Less</Text>
+          <View className="flex-row items-center gap-3 mt-4">
+            <Text variant="caption" className="text-muted-foreground">Less</Text>
             <View className="flex-row gap-1">
-              <View className="bg-muted rounded-sm" style={{ width: 10, height: 10 }} />
-              <View className="bg-green-200 dark:bg-green-900/40 rounded-sm" style={{ width: 10, height: 10 }} />
-              <View className="bg-green-400 dark:bg-green-700/60 rounded-sm" style={{ width: 10, height: 10 }} />
-              <View className="bg-green-500 dark:bg-green-600/80 rounded-sm" style={{ width: 10, height: 10 }} />
-              <View className="bg-green-600 dark:bg-green-500 rounded-sm" style={{ width: 10, height: 10 }} />
+              <View className="bg-heatmap-0 rounded-sm" style={{ width: 12, height: 12 }} />
+              <View className="bg-heatmap-1 rounded-sm" style={{ width: 12, height: 12 }} />
+              <View className="bg-heatmap-2 rounded-sm" style={{ width: 12, height: 12 }} />
+              <View className="bg-heatmap-3 rounded-sm" style={{ width: 12, height: 12 }} />
+              <View className="bg-heatmap-4 rounded-sm" style={{ width: 12, height: 12 }} />
             </View>
-            <Text className="text-xs text-muted-foreground">More</Text>
+            <Text variant="caption" className="text-muted-foreground">More</Text>
           </View>
         </View>
       </ScrollView>

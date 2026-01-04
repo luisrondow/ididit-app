@@ -28,22 +28,29 @@ export function ScreenHeader({
   const { colorScheme, toggleColorScheme } = useColorScheme();
 
   return (
-    <View className="flex-row items-center justify-between px-4 py-3 border-b border-border bg-background">
-      <View className="flex-1">
-        <Text className="text-2xl font-bold text-foreground">{title}</Text>
-        {subtitle && <Text className="text-sm text-muted-foreground mt-1">{subtitle}</Text>}
-      </View>
-      <View className="flex-row items-center gap-2">
-        {rightAction}
-        {showThemeToggle && (
-          <Button
-            onPress={toggleColorScheme}
-            size="icon"
-            variant="ghost"
-            className="rounded-full">
-            <Icon as={THEME_ICONS[colorScheme ?? 'light']} className="size-5" />
-          </Button>
-        )}
+    <View className="px-5 py-4 border-b border-border bg-background">
+      <View className="flex-row items-start justify-between">
+        <View className="flex-1">
+          <Text variant="h1" className="text-foreground">{title}</Text>
+          {subtitle && (
+            <Text variant="mono" className="text-muted-foreground mt-1">
+              {subtitle}
+            </Text>
+          )}
+        </View>
+        <View className="flex-row items-center gap-1">
+          {rightAction}
+          {showThemeToggle && (
+            <Button
+              onPress={toggleColorScheme}
+              size="icon"
+              variant="ghost"
+              className="rounded-full"
+            >
+              <Icon as={THEME_ICONS[colorScheme ?? 'light']} className="size-5 text-foreground" />
+            </Button>
+          )}
+        </View>
       </View>
     </View>
   );

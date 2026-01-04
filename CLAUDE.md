@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**IDidIt** is a mobile habit tracker application that helps users build and maintain positive habits through goal setting, activity logging, and visual progress tracking.
+**IDidIt** is a fully functional mobile habit tracker application that helps users build and maintain positive habits through goal setting, activity logging, and visual progress tracking.
 
 This is a React Native app built with Expo and styled with NativeWind (Tailwind CSS for React Native). The project uses the React Native Reusables component library and follows the "New York" style variant.
 
@@ -17,6 +17,9 @@ This is a React Native app built with Expo and styled with NativeWind (Tailwind 
 - **NativeWind v4** for Tailwind CSS styling
 - **React Native Reusables** for UI components (shadcn-style for React Native)
 - **TypeScript** with strict mode enabled
+- **SQLite** (expo-sqlite) for local data persistence
+- **Zustand** for state management
+- **date-fns** for date manipulation
 - **Lucide React Native** for icons
 
 ## Development Commands
@@ -38,157 +41,237 @@ npm run clean
 
 ## Architecture & Structure
 
-### Routing (Expo Router)
-- File-based routing in `app/` directory
-- `app/_layout.tsx` - Root layout with theme provider, status bar, and portal host
-- `app/index.tsx` - Home screen
-- `app/+not-found.tsx` - 404 handling
-- `app/+html.tsx` - Web HTML wrapper
-- Typed routes enabled via `experiments.typedRoutes` in app.json
+### Directory Structure
 
-### Styling System
-- **Global styles:** `global.css` contains CSS variable definitions for theming
-- **Theme configuration:** `lib/theme.ts` defines navigation theme colors for light/dark modes
-- **Utility function:** `lib/utils.ts` exports `cn()` for merging Tailwind classes
-- **Dark mode:** Uses class-based dark mode (`darkMode: 'class'` in tailwind.config.js)
-- **Color scheme:** Managed via NativeWind's `useColorScheme()` hook
-- **Design system:** Uses HSL CSS variables (--primary, --secondary, --accent, etc.)
+```
+app/                              # Expo Router screens
+├── _layout.tsx                   # Root layout (DB init, theme, toast provider)
+├── index.tsx                     # Redirects to (tabs)
+├── +not-found.tsx                # 404 handling
+├── +html.tsx                     # Web HTML wrapper
+├── (tabs)/
+│   ├── _layout.tsx               # Tab navigation (Home, Calendar, Stats)
+│   ├── index.tsx                 # Dashboard screen
+│   ├── calendar.tsx              # Calendar heatmap view
+│   └── statistics.tsx            # Statistics screen
+└── habit/
+    ├── new.tsx                   # Create new habit form
+    ├── [id].tsx                  # Edit habit screen
+    └── detail/
+        └── [id].tsx              # Habit detail with heatmap
 
-### Component Organization
-- **UI components:** `components/ui/` - Reusable primitives (button, text, icon)
-- **Custom components:** `components/` - App-specific components
-- **Path aliases:** Use `@/` prefix for all imports (configured in tsconfig.json and components.json)
+components/
+├── ui/                           # Base UI components (React Native Reusables)
+│   ├── button.tsx, text.tsx, input.tsx, label.tsx
+│   ├── textarea.tsx, icon.tsx, skeleton.tsx
+│   ├── switch.tsx, separator.tsx, toast.tsx
+├── habit-card.tsx                # Habit card with completion & actions
+├── habit-heatmap.tsx             # Binary heatmap (single habit)
+├── calendar-heatmap.tsx          # Multi-tone heatmap (all habits)
+├── screen-header.tsx             # Reusable screen header
+└── error-boundary.tsx            # App-level error boundary
 
-### Adding Components
-Use the React Native Reusables CLI to add pre-built components:
-```bash
-npx @react-native-reusables/cli@latest add [component-names]
-# Interactive mode (no component names specified)
-npx @react-native-reusables/cli@latest add
-# Install all components
-npx @react-native-reusables/cli@latest add --all
+lib/
+├── db/
+│   ├── init.ts                   # Database initialization & management
+│   ├── schema.ts                 # SQLite table definitions
+│   └── migrations.ts             # Database version migrations
+├── repositories/                 # Data access layer
+│   ├── habit-repository.ts       # Habit CRUD operations
+│   ├── log-repository.ts         # Log entry CRUD operations
+│   └── stats-repository.ts       # Aggregation queries for stats/heatmaps
+├── store/                        # Zustand state stores
+│   ├── habits-store.ts           # Habit state management
+│   └── logs-store.ts             # Log entry state management
+├── context/
+│   └── toast-context.tsx         # Toast notification context
+├── utils/
+│   ├── streak-calculator.ts      # Streak calculation logic
+│   ├── completion-calculator.ts  # Completion rate calculations
+│   ├── date-helpers.ts           # date-fns wrappers
+│   ├── validators.ts             # Form & data validation
+│   └── haptics.ts                # Haptic feedback utilities
+├── theme.ts                      # Navigation theme configuration
+└── utils.ts                      # General utilities (cn function)
+
+types/
+└── models.ts                     # TypeScript interfaces
 ```
 
-Components are configured via `components.json`:
-- Style: "new-york"
-- Base color: "neutral"
-- CSS variables enabled
-- Aliases: @/components, @/lib, @/ui, @/hooks
+### Routing (Expo Router)
 
-## Configuration Files
+| Route | Screen | Description |
+|-------|--------|-------------|
+| `/(tabs)` | Tab Navigator | Bottom tabs: Home, Calendar, Statistics |
+| `/(tabs)/index` | Dashboard | Today's habits with quick logging |
+| `/(tabs)/calendar` | Calendar | Multi-habit heatmap with month navigation |
+| `/(tabs)/statistics` | Statistics | Overall progress and insights |
+| `/habit/new` | Create Habit | New habit form |
+| `/habit/[id]` | Edit Habit | Edit existing habit |
+| `/habit/detail/[id]` | Habit Detail | Individual habit stats and heatmap |
 
-### Metro (metro.config.js)
-- Configured with NativeWind integration
-- Global CSS file: `./global.css`
-- Inline rem value: 16px
+### Layered Architecture
 
-### Babel (babel.config.js)
-- Preset: `babel-preset-expo` with `jsxImportSource: 'nativewind'`
-- NativeWind babel preset included
+```
+┌─────────────────────────────────────────────┐
+│              Screens (app/)                 │
+├─────────────────────────────────────────────┤
+│           Components (components/)          │
+├─────────────────────────────────────────────┤
+│         State Management (lib/store/)       │
+│              Zustand Stores                 │
+├─────────────────────────────────────────────┤
+│        Data Access (lib/repositories/)      │
+│            Repository Pattern               │
+├─────────────────────────────────────────────┤
+│           Database (lib/db/)                │
+│          SQLite via expo-sqlite             │
+└─────────────────────────────────────────────┘
+```
 
-### TypeScript (tsconfig.json)
-- Strict mode enabled
-- Base URL: `.` (project root)
-- Path alias: `@/*` maps to project root
-- Extends Expo's base config
-
-### Expo (app.json)
-- New Architecture: enabled (`newArchEnabled: true`)
-- Android: Edge-to-edge enabled
-- Web bundler: Metro with static output
-- UI style: automatic (light/dark)
-- Custom scheme: `ididit-app`
-
-## Platform Support
-
-This app runs on iOS, Android, and Web. It fully supports Expo Go for quick testing on physical devices.
-
-## Deployment
-
-The project is configured for deployment via Expo Application Services (EAS):
-- EAS Build for building native apps
-- EAS Updates for OTA updates
-- EAS Submit for app store submissions
-
-## App Features & Data Models
-
-### Core Features
-
-**1. Habit/Goal Creation**
-- Habit name (required)
-- Time range options: Daily, Weekly, Monthly, or Custom
-- Target frequency (e.g., "5 times per week")
-- Optional: description, category/tags, start/end dates
-
-**2. Activity Logging**
-- Quick one-tap logging for habit completion
-- Automatic timestamps
-- Retroactive logging with custom date/time
-- Optional notes per completion
-
-**3. Visualization & Progress Tracking**
-- **Dashboard View:** Today's habits, streaks, quick stats
-- **Calendar View:** GitHub-style heatmap showing all habits with color intensity based on completion density
-- **Habit Detail View:** Binary heatmap (completed/not completed), streak tracking, completion percentage
-- **Statistics:** Overall completion rate, trends, best performing habits
-
-### Data Models
+## Data Models
 
 ```typescript
+// types/models.ts
+
 interface Habit {
   id: string;
   name: string;
   description?: string;
   category?: string;
   timeRange: 'daily' | 'weekly' | 'monthly' | 'custom';
-  customTimeRange?: {
-    value: number;
-    unit: 'days' | 'weeks' | 'months';
-  };
-  targetFrequency: number; // How many times per time range
-  startDate: Date;
-  endDate?: Date; // Optional for time-bound goals
-  createdAt: Date;
-  updatedAt: Date;
+  customTimeRange?: { value: number; unit: 'days' | 'weeks' | 'months' };
+  targetFrequency: number;
+  startDate: string;      // ISO 8601
+  endDate?: string;
+  createdAt: string;
+  updatedAt: string;
   isArchived: boolean;
 }
 
 interface LogEntry {
   id: string;
   habitId: string;
-  completedAt: Date; // When the habit was actually completed
-  loggedAt: Date; // When the user logged it
+  completedAt: string;    // When habit was completed
+  loggedAt: string;       // When user logged it
   notes?: string;
+}
+
+interface StreakInfo {
+  currentStreak: number;
+  longestStreak: number;
+  lastCompletedDate?: string;
+}
+
+interface CompletionStats {
+  totalCompletions: number;
+  completionRate: number;
+  periodStart: string;
+  periodEnd: string;
+}
+
+interface HeatmapData {
+  date: string;
+  completionCount: number;
+  totalHabits: number;
+  intensity: 0 | 1 | 2 | 3 | 4;  // For multi-tone heatmap
+  isCompleted?: boolean;         // For binary heatmap
 }
 ```
 
-### MVP Scope (Phase 1)
+## Database Schema
 
-**In Scope:**
-- Create habits (name, time range, target frequency)
-- Log habit completions (quick tap, timestamp)
-- View today's habits on dashboard
-- Calendar view with multi-tone heatmap showing all habits
-- Habit detail view with binary heatmap
-- Simple streak tracking
+**Tables:**
+- `habits` - Habit definitions with indexes on `is_archived` and `start_date`
+- `log_entries` - Completion logs with foreign key to habits (CASCADE delete), indexes on `habit_id`, `completed_at`
 
-**Out of Scope for MVP:**
+## State Management
+
+**Zustand Stores:**
+
+| Store | State | Key Actions |
+|-------|-------|-------------|
+| `habitsStore` | habits[], isLoading, error | loadHabits, addHabit, editHabit, removeHabit, toggleArchive |
+| `logsStore` | logs[], isLoading, error | loadLogsByHabitId, addLog, removeLog |
+
+## Key Utilities
+
+| File | Purpose |
+|------|---------|
+| `streak-calculator.ts` | Calculate current/longest streaks for all time ranges |
+| `completion-calculator.ts` | Calculate completion rates and stats |
+| `date-helpers.ts` | Date manipulation wrappers (date-fns) |
+| `validators.ts` | Form validation, prevents future date logging |
+| `haptics.ts` | Haptic feedback (light, medium, heavy, success, error) |
+
+## Styling System
+
+- **Global styles:** `global.css` with CSS variables for theming
+- **Theme config:** `lib/theme.ts` for navigation colors
+- **Utility function:** `cn()` from `lib/utils.ts` for class merging
+- **Dark mode:** Class-based (`darkMode: 'class'` in tailwind.config.js)
+- **Heatmap colors:** 5 intensity levels defined in global.css
+
+### Adding UI Components
+
+```bash
+npx @react-native-reusables/cli@latest add [component-names]
+```
+
+Components configured via `components.json` (Style: "new-york", Base: "neutral").
+
+## Implemented Features
+
+**Dashboard:**
+- Today's active habits with completion progress
+- One-tap logging with haptic feedback
+- Habit cards showing streak, category, target frequency
+- Pull-to-refresh
+
+**Calendar View:**
+- Multi-tone GitHub-style heatmap (5 intensity levels)
+- Month navigation (1-12 months range)
+- Summary stats (active days, avg completion rate)
+
+**Habit Detail:**
+- Binary heatmap showing completion per day
+- Current streak and longest streak
+- 30-day completion rate
+- Total completions count
+- Edit/delete actions
+
+**Statistics:**
+- Overall habits count (total, active)
+- Completions breakdown (today, week, month, all-time)
+- Top performers (best streak, most completed)
+
+**Polish:**
+- Loading skeletons
+- Toast notifications
+- Error boundary
+- Haptic feedback
+- Dark mode support
+
+## Configuration Files
+
+| File | Purpose |
+|------|---------|
+| `app.json` | Expo config (New Architecture, edge-to-edge, typed routes) |
+| `metro.config.js` | NativeWind integration |
+| `babel.config.js` | JSX import source for NativeWind |
+| `tailwind.config.js` | Tailwind configuration with custom heatmap colors |
+| `tsconfig.json` | TypeScript with strict mode, path aliases |
+| `components.json` | React Native Reusables configuration |
+
+## Platform Support
+
+Runs on iOS, Android, and Web. Fully supports Expo Go for development.
+
+## Future Enhancements (Out of Current Scope)
+
 - Cloud sync/backup
-- Social features
+- Notifications/reminders
 - Habit templates
 - Advanced analytics
-- Notifications/reminders
-- Export data
-
-### Design Principles
-
-- **Simple & Fast:** Minimize taps to log a habit
-- **Visual Feedback:** Clear indication of progress and completion
-- **Encouraging:** Positive reinforcement for streaks and achievements
-- **Flexible:** Support various habit types and tracking patterns
-
-### Technical Requirements
-
-- **Data Persistence:** Local storage using AsyncStorage or SQLite for offline-first functionality
-- **Performance:** Instant feedback on logging, smooth animations
-- **Dark Mode:** Respects system theme preference
+- Social features
+- Data export

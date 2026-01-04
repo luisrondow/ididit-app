@@ -18,7 +18,7 @@ export default function CalendarScreen() {
   const [heatmapData, setHeatmapData] = useState<HeatmapData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [monthsToShow, setMonthsToShow] = useState(3); // Show 3 months by default
+  const [monthsToShow, setMonthsToShow] = useState(3);
 
   useEffect(() => {
     loadHeatmapData();
@@ -79,23 +79,22 @@ export default function CalendarScreen() {
       <ScreenHeader title="Calendar" subtitle={currentMonth} />
       <ScrollView
         className="flex-1"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-        <View className="p-4 gap-4">
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        <View className="p-5 gap-5">
           {isLoading && heatmapData.length === 0 ? (
             <View className="gap-4">
-              {/* Summary Stats Skeleton */}
               <View className="flex-row gap-3">
-                <View className="flex-1 bg-card border border-border rounded-lg p-4 gap-2">
+                <View className="flex-1 bg-card border border-border rounded-lg p-5 gap-2 items-center">
                   <Skeleton width={60} height={32} />
-                  <Skeleton width={80} height={12} />
+                  <Skeleton width={80} height={14} />
                 </View>
-                <View className="flex-1 bg-card border border-border rounded-lg p-4 gap-2">
+                <View className="flex-1 bg-card border border-border rounded-lg p-5 gap-2 items-center">
                   <Skeleton width={60} height={32} />
-                  <Skeleton width={80} height={12} />
+                  <Skeleton width={80} height={14} />
                 </View>
               </View>
-              {/* Heatmap Skeleton */}
-              <View className="bg-card border border-border rounded-lg p-4 gap-3">
+              <View className="bg-card border border-border rounded-lg p-5 gap-3">
                 <Skeleton width="100%" height={200} />
               </View>
             </View>
@@ -103,13 +102,13 @@ export default function CalendarScreen() {
             <>
               {/* Summary Stats */}
               <View className="flex-row gap-3">
-                <View className="flex-1 bg-card border border-border rounded-lg p-4">
-                  <Text className="text-2xl font-bold text-foreground">{totalDaysWithActivity}</Text>
-                  <Text className="text-xs text-muted-foreground mt-1">Active Days</Text>
+                <View className="flex-1 bg-card border border-border rounded-lg p-5 items-center">
+                  <Text variant="mono-xl" className="text-foreground">{totalDaysWithActivity}</Text>
+                  <Text variant="caption" className="text-muted-foreground mt-1">Active Days</Text>
                 </View>
-                <View className="flex-1 bg-card border border-border rounded-lg p-4">
-                  <Text className="text-2xl font-bold text-foreground">{averageCompletionRate}%</Text>
-                  <Text className="text-xs text-muted-foreground mt-1">Avg Completion</Text>
+                <View className="flex-1 bg-card border border-border rounded-lg p-5 items-center">
+                  <Text variant="mono-xl" className="text-foreground">{averageCompletionRate}%</Text>
+                  <Text variant="caption" className="text-muted-foreground mt-1">Avg Completion</Text>
                 </View>
               </View>
 
@@ -122,27 +121,27 @@ export default function CalendarScreen() {
                   size="sm"
                   variant="outline"
                   onPress={showLessMonths}
-                  disabled={monthsToShow <= 1}>
-                  <Icon as={ChevronLeft} className="size-4" />
-                  <Text className="ml-1">Less</Text>
+                  disabled={monthsToShow <= 1}
+                >
+                  <Icon as={ChevronLeft} className="size-4 text-foreground" />
                 </Button>
-                <Text className="text-sm text-muted-foreground">
-                  Showing {monthsToShow} {monthsToShow === 1 ? 'month' : 'months'}
+                <Text variant="mono" className="text-muted-foreground">
+                  {monthsToShow} {monthsToShow === 1 ? 'month' : 'months'}
                 </Text>
                 <Button
                   size="sm"
                   variant="outline"
                   onPress={showMoreMonths}
-                  disabled={monthsToShow >= 12}>
-                  <Text className="mr-1">More</Text>
-                  <Icon as={ChevronRight} className="size-4" />
+                  disabled={monthsToShow >= 12}
+                >
+                  <Icon as={ChevronRight} className="size-4 text-foreground" />
                 </Button>
               </View>
 
               {/* Info text */}
-              <View className="bg-muted/50 rounded-lg p-3">
-                <Text className="text-xs text-muted-foreground text-center">
-                  Darker colors indicate a higher percentage of habits completed on that day
+              <View className="border border-border rounded-lg p-4">
+                <Text variant="caption" className="text-muted-foreground text-center">
+                  Intensity indicates percentage of habits completed
                 </Text>
               </View>
             </>

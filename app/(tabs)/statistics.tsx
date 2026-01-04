@@ -9,7 +9,7 @@ import { useHabitsStore } from '@/lib/store/habits-store';
 import { getOverallStats } from '@/lib/repositories/stats-repository';
 import { getLogEntriesByHabitId } from '@/lib/repositories/log-repository';
 import { calculateStreak } from '@/lib/utils/streak-calculator';
-import { TrendingUp, Target, Flame, CheckCircle2, Calendar, Award } from 'lucide-react-native';
+import { TrendingUp, Target, Flame, Check, Calendar, Award } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -18,7 +18,6 @@ export default function StatisticsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Overall stats
   const [totalHabits, setTotalHabits] = useState(0);
   const [activeHabits, setActiveHabits] = useState(0);
   const [completionsToday, setCompletionsToday] = useState(0);
@@ -26,7 +25,6 @@ export default function StatisticsScreen() {
   const [completionsThisMonth, setCompletionsThisMonth] = useState(0);
   const [completionsAllTime, setCompletionsAllTime] = useState(0);
 
-  // Habit-specific stats
   const [bestStreak, setBestStreak] = useState({ habitName: '', streak: 0 });
   const [mostCompleted, setMostCompleted] = useState({ habitName: '', count: 0 });
 
@@ -37,10 +35,8 @@ export default function StatisticsScreen() {
   const loadStats = async () => {
     setIsLoading(true);
     try {
-      // Load habits
       await loadActiveHabits();
 
-      // Load overall stats
       const overallStats = await getOverallStats();
       setTotalHabits(overallStats.totalHabits);
       setActiveHabits(overallStats.activeHabits);
@@ -49,7 +45,6 @@ export default function StatisticsScreen() {
       setCompletionsThisMonth(overallStats.totalCompletionsThisMonth);
       setCompletionsAllTime(overallStats.totalCompletionsAllTime);
 
-      // Find habit with best streak and most completions
       let maxStreak = 0;
       let maxStreakHabit = '';
       let maxCompletions = 0;
@@ -90,123 +85,123 @@ export default function StatisticsScreen() {
       <ScreenHeader title="Statistics" subtitle="Your progress overview" />
       <ScrollView
         className="flex-1"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-        <View className="p-4 gap-4">
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        <View className="p-5 gap-5">
           {isLoading ? (
             <View className="gap-4">
-              {/* Stats Grid Skeleton */}
               <View className="flex-row gap-3">
-                <View className="flex-1 bg-card border border-border rounded-lg p-4 gap-2">
-                  <Skeleton width={40} height={40} rounded="full" />
-                  <Skeleton width={50} height={28} />
-                  <Skeleton width="100%" height={12} />
+                <View className="flex-1 bg-card border border-border rounded-lg p-5 gap-3 items-center">
+                  <Skeleton width={32} height={32} rounded="full" />
+                  <Skeleton width={60} height={32} />
+                  <Skeleton width={80} height={14} />
                 </View>
-                <View className="flex-1 bg-card border border-border rounded-lg p-4 gap-2">
-                  <Skeleton width={40} height={40} rounded="full" />
-                  <Skeleton width={50} height={28} />
-                  <Skeleton width="100%" height={12} />
+                <View className="flex-1 bg-card border border-border rounded-lg p-5 gap-3 items-center">
+                  <Skeleton width={32} height={32} rounded="full" />
+                  <Skeleton width={60} height={32} />
+                  <Skeleton width={80} height={14} />
                 </View>
               </View>
-              <View className="flex-row gap-3">
-                <View className="flex-1 bg-card border border-border rounded-lg p-4 gap-2">
-                  <Skeleton width={40} height={40} rounded="full" />
-                  <Skeleton width={50} height={28} />
-                  <Skeleton width="100%" height={12} />
-                </View>
-                <View className="flex-1 bg-card border border-border rounded-lg p-4 gap-2">
-                  <Skeleton width={40} height={40} rounded="full" />
-                  <Skeleton width={50} height={28} />
-                  <Skeleton width="100%" height={12} />
-                </View>
+              <View className="bg-card border border-border rounded-lg p-5 gap-3">
+                <Skeleton width={120} height={20} />
+                <Skeleton width="100%" height={60} />
               </View>
             </View>
           ) : (
             <>
-              {/* Habits Overview */}
+              {/* Habits Overview Grid */}
               <View>
-                <Text className="text-lg font-semibold text-foreground mb-3">Habits Overview</Text>
+                <Text variant="h4" className="text-foreground mb-4">Overview</Text>
                 <View className="flex-row gap-3">
-                  <View className="flex-1 bg-card border border-border rounded-lg p-4 items-center">
-                    <Icon as={Target} className="size-6 text-primary mb-2" />
-                    <Text className="text-2xl font-bold text-foreground">{totalHabits}</Text>
-                    <Text className="text-xs text-muted-foreground text-center mt-1">Total Habits</Text>
+                  <View className="flex-1 bg-card border border-border rounded-lg p-5 items-center">
+                    <Icon as={Target} className="size-6 text-foreground mb-3" />
+                    <Text variant="mono-xl" className="text-foreground">{totalHabits}</Text>
+                    <Text variant="caption" className="text-muted-foreground mt-1">Total</Text>
                   </View>
-                  <View className="flex-1 bg-card border border-border rounded-lg p-4 items-center">
-                    <Icon as={CheckCircle2} className="size-6 text-green-600 mb-2" />
-                    <Text className="text-2xl font-bold text-foreground">{activeHabits}</Text>
-                    <Text className="text-xs text-muted-foreground text-center mt-1">Active Habits</Text>
+                  <View className="flex-1 bg-card border border-border rounded-lg p-5 items-center">
+                    <Icon as={Check} className="size-6 text-success mb-3" />
+                    <Text variant="mono-xl" className="text-foreground">{activeHabits}</Text>
+                    <Text variant="caption" className="text-muted-foreground mt-1">Active</Text>
                   </View>
                 </View>
               </View>
 
               {/* Completions */}
               <View>
-                <Text className="text-lg font-semibold text-foreground mb-3">Completions</Text>
-                <View className="gap-3">
-                  <View className="bg-card border border-border rounded-lg p-4 flex-row items-center justify-between">
-                    <View>
-                      <Text className="text-sm text-muted-foreground">Today</Text>
-                      <Text className="text-2xl font-bold text-foreground mt-1">{completionsToday}</Text>
+                <Text variant="h4" className="text-foreground mb-4">Completions</Text>
+                <View className="bg-card border border-border rounded-lg">
+                  {/* Today */}
+                  <View className="p-5 flex-row items-center justify-between border-b border-border">
+                    <View className="flex-row items-center gap-3">
+                      <Icon as={Calendar} className="size-5 text-muted-foreground" />
+                      <Text variant="body" className="text-foreground">Today</Text>
                     </View>
-                    <Icon as={Calendar} className="size-8 text-primary" />
+                    <Text variant="mono-lg" className="text-foreground">{completionsToday}</Text>
                   </View>
 
-                  <View className="bg-card border border-border rounded-lg p-4 flex-row items-center justify-between">
-                    <View>
-                      <Text className="text-sm text-muted-foreground">This Week</Text>
-                      <Text className="text-2xl font-bold text-foreground mt-1">{completionsThisWeek}</Text>
+                  {/* This Week */}
+                  <View className="p-5 flex-row items-center justify-between border-b border-border">
+                    <View className="flex-row items-center gap-3">
+                      <Icon as={TrendingUp} className="size-5 text-muted-foreground" />
+                      <Text variant="body" className="text-foreground">This Week</Text>
                     </View>
-                    <Icon as={TrendingUp} className="size-8 text-primary" />
+                    <Text variant="mono-lg" className="text-foreground">{completionsThisWeek}</Text>
                   </View>
 
-                  <View className="bg-card border border-border rounded-lg p-4 flex-row items-center justify-between">
-                    <View>
-                      <Text className="text-sm text-muted-foreground">This Month</Text>
-                      <Text className="text-2xl font-bold text-foreground mt-1">{completionsThisMonth}</Text>
+                  {/* This Month */}
+                  <View className="p-5 flex-row items-center justify-between border-b border-border">
+                    <View className="flex-row items-center gap-3">
+                      <Icon as={Check} className="size-5 text-muted-foreground" />
+                      <Text variant="body" className="text-foreground">This Month</Text>
                     </View>
-                    <Icon as={CheckCircle2} className="size-8 text-green-600" />
+                    <Text variant="mono-lg" className="text-foreground">{completionsThisMonth}</Text>
                   </View>
 
-                  <View className="bg-card border border-border rounded-lg p-4 flex-row items-center justify-between">
-                    <View>
-                      <Text className="text-sm text-muted-foreground">All Time</Text>
-                      <Text className="text-2xl font-bold text-foreground mt-1">{completionsAllTime}</Text>
+                  {/* All Time */}
+                  <View className="p-5 flex-row items-center justify-between">
+                    <View className="flex-row items-center gap-3">
+                      <Icon as={Award} className="size-5 text-muted-foreground" />
+                      <Text variant="body" className="text-foreground">All Time</Text>
                     </View>
-                    <Icon as={Award} className="size-8 text-orange-600" />
+                    <Text variant="mono-lg" className="text-foreground">{completionsAllTime}</Text>
                   </View>
                 </View>
               </View>
 
               {/* Top Performers */}
-              {habits.length > 0 && (
+              {habits.length > 0 && (bestStreak.streak > 0 || mostCompleted.count > 0) && (
                 <View>
-                  <Text className="text-lg font-semibold text-foreground mb-3">Top Performers</Text>
+                  <Text variant="h4" className="text-foreground mb-4">Top Performers</Text>
                   <View className="gap-3">
                     {bestStreak.streak > 0 && (
-                      <View className="bg-card border border-border rounded-lg p-4">
-                        <View className="flex-row items-center gap-2 mb-2">
-                          <Icon as={Flame} className="size-5 text-orange-600 dark:text-orange-400" />
-                          <Text className="text-sm font-semibold text-foreground">Best Streak</Text>
+                      <View className="bg-card border border-border rounded-lg p-5">
+                        <View className="flex-row items-center gap-2 mb-3">
+                          <Icon as={Flame} className="size-5 text-streak" />
+                          <Text variant="caption" className="text-muted-foreground uppercase tracking-wide">
+                            Best Streak
+                          </Text>
                         </View>
-                        <Text className="text-xl font-bold text-foreground" numberOfLines={1}>
+                        <Text variant="h3" className="text-foreground" numberOfLines={1}>
                           {bestStreak.habitName}
                         </Text>
-                        <Text className="text-sm text-muted-foreground mt-1">
+                        <Text variant="mono" className="text-muted-foreground mt-1">
                           {bestStreak.streak} {bestStreak.streak === 1 ? 'day' : 'days'}
                         </Text>
                       </View>
                     )}
 
                     {mostCompleted.count > 0 && (
-                      <View className="bg-card border border-border rounded-lg p-4">
-                        <View className="flex-row items-center gap-2 mb-2">
-                          <Icon as={Award} className="size-5 text-primary" />
-                          <Text className="text-sm font-semibold text-foreground">Most Completed</Text>
+                      <View className="bg-card border border-border rounded-lg p-5">
+                        <View className="flex-row items-center gap-2 mb-3">
+                          <Icon as={Award} className="size-5 text-foreground" />
+                          <Text variant="caption" className="text-muted-foreground uppercase tracking-wide">
+                            Most Completed
+                          </Text>
                         </View>
-                        <Text className="text-xl font-bold text-foreground" numberOfLines={1}>
+                        <Text variant="h3" className="text-foreground" numberOfLines={1}>
                           {mostCompleted.habitName}
                         </Text>
-                        <Text className="text-sm text-muted-foreground mt-1">
+                        <Text variant="mono" className="text-muted-foreground mt-1">
                           {mostCompleted.count} {mostCompleted.count === 1 ? 'completion' : 'completions'}
                         </Text>
                       </View>
@@ -217,9 +212,12 @@ export default function StatisticsScreen() {
 
               {/* Empty state */}
               {habits.length === 0 && (
-                <View className="bg-card border border-border rounded-lg p-6 items-center justify-center">
-                  <Text className="text-muted-foreground text-center">
-                    No habits yet. Create your first habit to see statistics!
+                <View className="items-center justify-center py-16">
+                  <Text variant="h2" className="text-foreground mb-3">
+                    Nothing to show yet
+                  </Text>
+                  <Text variant="body" className="text-muted-foreground text-center max-w-[280px]">
+                    Complete habits to see your statistics
                   </Text>
                 </View>
               )}

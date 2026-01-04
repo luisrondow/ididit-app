@@ -42,7 +42,6 @@ export default function HabitDetailScreen() {
 
     setIsLoading(true);
     try {
-      // Load habit
       const loadedHabit = await getHabit(id);
       if (!loadedHabit) {
         toast.error('Habit not found');
@@ -51,19 +50,16 @@ export default function HabitDetailScreen() {
       }
       setHabit(loadedHabit);
 
-      // Load heatmap data for last 3 months
       const endDate = endOfDay(new Date()).toISOString();
       const startDate = startOfDay(subtractMonthsFromDate(new Date(), 3)).toISOString();
       const heatmap = await getSingleHabitHeatmapData(id, startDate, endDate);
       setHeatmapData(heatmap);
 
-      // Load logs and calculate streaks
       const logs = await getLogEntriesByHabitId(id);
       const streakInfo = calculateStreak(loadedHabit, logs);
       setCurrentStreak(streakInfo.currentStreak);
       setLongestStreak(streakInfo.longestStreak);
 
-      // Calculate completion stats for last 30 days
       const last30DaysStart = startOfDay(subtractMonthsFromDate(new Date(), 1)).toISOString();
       const stats = await getCompletionStats(id, last30DaysStart, endDate);
       setCompletionRate(stats.completionRate);
@@ -88,33 +84,30 @@ export default function HabitDetailScreen() {
   if (isLoading || !habit) {
     return (
       <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-        <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
+        <View className="flex-row items-center justify-between px-5 py-4 border-b border-border">
           <Skeleton width={40} height={40} rounded="full" />
           <Skeleton width={120} height={24} />
           <Skeleton width={40} height={40} rounded="full" />
         </View>
-        <ScrollView className="flex-1 p-4">
+        <ScrollView className="flex-1 p-5">
           <View className="gap-4">
-            {/* Header Skeleton */}
-            <View className="bg-card border border-border rounded-lg p-4 gap-3">
-              <Skeleton width={200} height={28} />
+            <View className="bg-card border border-border rounded-lg p-5 gap-3">
+              <Skeleton width={200} height={32} />
               <SkeletonText lines={2} />
             </View>
-            {/* Stats Skeleton */}
             <View className="flex-row gap-3">
-              <View className="flex-1 bg-card border border-border rounded-lg p-4 gap-2">
-                <Skeleton width={40} height={40} rounded="full" />
-                <Skeleton width={50} height={24} />
-                <Skeleton width="100%" height={12} />
+              <View className="flex-1 bg-card border border-border rounded-lg p-5 gap-2 items-center">
+                <Skeleton width={32} height={32} rounded="full" />
+                <Skeleton width={60} height={32} />
+                <Skeleton width={80} height={12} />
               </View>
-              <View className="flex-1 bg-card border border-border rounded-lg p-4 gap-2">
-                <Skeleton width={40} height={40} rounded="full" />
-                <Skeleton width={50} height={24} />
-                <Skeleton width="100%" height={12} />
+              <View className="flex-1 bg-card border border-border rounded-lg p-5 gap-2 items-center">
+                <Skeleton width={32} height={32} rounded="full" />
+                <Skeleton width={60} height={32} />
+                <Skeleton width={80} height={12} />
               </View>
             </View>
-            {/* Heatmap Skeleton */}
-            <View className="bg-card border border-border rounded-lg p-4 gap-3">
+            <View className="bg-card border border-border rounded-lg p-5 gap-3">
               <Skeleton width={100} height={20} />
               <Skeleton width="100%" height={200} />
             </View>
@@ -133,36 +126,41 @@ export default function HabitDetailScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-      <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
+      {/* Header */}
+      <View className="flex-row items-center justify-between px-5 py-4 border-b border-border">
         <Button size="icon" variant="ghost" onPress={() => router.back()}>
-          <Icon as={ArrowLeft} className="size-5" />
+          <Icon as={ArrowLeft} className="size-5 text-foreground" />
         </Button>
-        <Text className="text-xl font-semibold text-foreground">Habit Details</Text>
+        <Text variant="h3" className="text-foreground">Details</Text>
         <Button size="icon" variant="ghost" onPress={handleEdit}>
-          <Icon as={Edit} className="size-5" />
+          <Icon as={Edit} className="size-5 text-foreground" />
         </Button>
       </View>
 
       <ScrollView className="flex-1">
-        <View className="p-4 gap-4">
-          {/* Habit Info */}
-          <View className="bg-card border border-border rounded-lg p-4">
-            <Text className="text-2xl font-bold text-foreground mb-2">{habit.name}</Text>
+        <View className="p-5 gap-4">
+          {/* Hero - Habit Name */}
+          <View className="bg-card border border-border rounded-lg p-5">
+            <Text variant="display" className="text-foreground mb-2">{habit.name}</Text>
             {habit.description && (
-              <Text className="text-sm text-muted-foreground mb-3">{habit.description}</Text>
+              <Text variant="body" className="text-muted-foreground mb-4">
+                {habit.description}
+              </Text>
             )}
-            <View className="flex-row items-center gap-3">
-              <View className="bg-primary/10 px-2 py-1 rounded">
-                <Text className="text-xs text-primary font-medium">{getTimeRangeLabel()}</Text>
+            <View className="flex-row items-center flex-wrap gap-2">
+              <View className="border border-border px-3 py-1.5 rounded-full">
+                <Text variant="caption" className="text-foreground font-sans-medium">
+                  {getTimeRangeLabel()}
+                </Text>
               </View>
-              <View className="bg-secondary px-2 py-1 rounded">
-                <Text className="text-xs text-secondary-foreground font-medium">
-                  {habit.targetFrequency}x per period
+              <View className="border border-border px-3 py-1.5 rounded-full">
+                <Text variant="caption" className="text-muted-foreground font-mono">
+                  {habit.targetFrequency}x
                 </Text>
               </View>
               {habit.category && (
-                <View className="bg-accent px-2 py-1 rounded">
-                  <Text className="text-xs text-accent-foreground font-medium">
+                <View className="border border-border px-3 py-1.5 rounded-full">
+                  <Text variant="caption" className="text-muted-foreground">
                     {habit.category}
                   </Text>
                 </View>
@@ -173,31 +171,31 @@ export default function HabitDetailScreen() {
           {/* Stats Grid */}
           <View className="flex-row gap-3">
             {/* Current Streak */}
-            <View className="flex-1 bg-card border border-border rounded-lg p-4 items-center">
-              <Icon as={Flame} className="size-6 text-orange-600 dark:text-orange-400 mb-2" />
-              <Text className="text-2xl font-bold text-foreground">{currentStreak}</Text>
-              <Text className="text-xs text-muted-foreground">Current Streak</Text>
+            <View className="flex-1 bg-card border border-border rounded-lg p-5 items-center">
+              <Icon as={Flame} className="size-6 text-streak mb-3" />
+              <Text variant="mono-xl" className="text-foreground">{currentStreak}</Text>
+              <Text variant="caption" className="text-muted-foreground mt-1">Current Streak</Text>
             </View>
 
             {/* Longest Streak */}
-            <View className="flex-1 bg-card border border-border rounded-lg p-4 items-center">
-              <Icon as={TrendingUp} className="size-6 text-primary mb-2" />
-              <Text className="text-2xl font-bold text-foreground">{longestStreak}</Text>
-              <Text className="text-xs text-muted-foreground">Best Streak</Text>
+            <View className="flex-1 bg-card border border-border rounded-lg p-5 items-center">
+              <Icon as={TrendingUp} className="size-6 text-foreground mb-3" />
+              <Text variant="mono-xl" className="text-foreground">{longestStreak}</Text>
+              <Text variant="caption" className="text-muted-foreground mt-1">Best Streak</Text>
             </View>
           </View>
 
           {/* Completion Rate (Last 30 days) */}
-          <View className="bg-card border border-border rounded-lg p-4">
-            <Text className="text-sm font-semibold text-foreground mb-3">Last 30 Days</Text>
-            <View className="flex-row items-center justify-between">
+          <View className="bg-card border border-border rounded-lg p-5">
+            <Text variant="h4" className="text-foreground mb-4">Last 30 Days</Text>
+            <View className="flex-row items-end justify-between">
               <View>
-                <Text className="text-3xl font-bold text-foreground">{completionRate}%</Text>
-                <Text className="text-xs text-muted-foreground mt-1">Completion Rate</Text>
+                <Text variant="mono-2xl" className="text-foreground">{completionRate}%</Text>
+                <Text variant="caption" className="text-muted-foreground mt-1">Completion Rate</Text>
               </View>
               <View className="items-end">
-                <Text className="text-2xl font-semibold text-foreground">{totalCompletions}</Text>
-                <Text className="text-xs text-muted-foreground mt-1">Total Completions</Text>
+                <Text variant="mono-lg" className="text-foreground">{totalCompletions}</Text>
+                <Text variant="caption" className="text-muted-foreground mt-1">Completions</Text>
               </View>
             </View>
           </View>

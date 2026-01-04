@@ -14,11 +14,11 @@ import { HabitCard } from '@/components/habit-card';
 import { useRouter } from 'expo-router';
 import type { LogEntry } from '@/types/models';
 import { getCompletionCountForDate, getLogEntriesByHabitId } from '@/lib/repositories/log-repository';
-import { startOfDay, endOfDay } from '@/lib/utils/date-helpers';
 import { calculateStreak } from '@/lib/utils/streak-calculator';
 import { useToast } from '@/lib/context/toast-context';
 import { SkeletonCard } from '@/components/ui/skeleton';
 import { haptics } from '@/lib/utils/haptics';
+import { FadeInView } from '@/components/ui/animated-view';
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -92,11 +92,10 @@ export default function DashboardScreen() {
 
     try {
       await addLog(newLog);
-      // Update completion count and streaks for this habit
       await loadCompletionCounts();
       await loadStreaks();
       haptics.success();
-      toast.success('Habit logged successfully!');
+      toast.success('Habit logged!');
     } catch (error) {
       haptics.error();
       toast.error('Failed to log completion');
@@ -115,7 +114,7 @@ export default function DashboardScreen() {
           try {
             await removeHabit(id);
             haptics.success();
-            toast.success('Habit deleted successfully');
+            toast.success('Habit deleted');
           } catch (error) {
             haptics.error();
             toast.error('Failed to delete habit');
@@ -149,15 +148,16 @@ export default function DashboardScreen() {
         title="Dashboard"
         subtitle={today}
         rightAction={
-          <Button size="icon" variant="ghost" className="rounded-full" onPress={handleCreateHabit}>
-            <Icon as={Plus} className="size-5" />
+          <Button size="icon" variant="ghost" onPress={handleCreateHabit}>
+            <Icon as={Plus} className="size-5 text-foreground" />
           </Button>
         }
       />
       <ScrollView
         className="flex-1"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-        <View className="p-4">
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        <View className="p-5">
           {isLoading && habits.length === 0 ? (
             <View className="gap-3">
               <SkeletonCard />
@@ -165,36 +165,45 @@ export default function DashboardScreen() {
               <SkeletonCard />
             </View>
           ) : habits.length === 0 ? (
-            <View className="bg-card border border-border rounded-lg p-6 items-center justify-center min-h-[200px]">
-              <Text className="text-muted-foreground text-center mb-4">
-                No habits yet. Tap the + button to create your first habit!
-              </Text>
-              <Button onPress={handleCreateHabit}>
-                <Icon as={Plus} className="size-4 mr-2" />
-                <Text>Create Habit</Text>
-              </Button>
-            </View>
+            // Empty state
+            <FadeInView delay={0}>
+              <View className="items-center justify-center py-20">
+                <Text variant="h2" className="text-foreground mb-3">
+                  No habits yet
+                </Text>
+                <Text variant="body" className="text-muted-foreground text-center mb-8 max-w-[280px]">
+                  Create your first habit to start tracking your progress
+                </Text>
+                <Button onPress={handleCreateHabit}>
+                  <Icon as={Plus} className="size-4 mr-2 text-primary-foreground" />
+                  <Text className="text-primary-foreground font-sans-medium">Create Habit</Text>
+                </Button>
+              </View>
+            </FadeInView>
           ) : (
             <View>
-              <Text className="text-sm text-muted-foreground mb-3">
-                {habits.length} active {habits.length === 1 ? 'habit' : 'habits'}
-              </Text>
-              {habits.map((habit) => (
-                <HabitCard
-                  key={habit.id}
-                  habit={habit}
-                  completionCount={completionCounts[habit.id] ?? 0}
-                  currentStreak={streaks[habit.id] ?? 0}
-                  onDelete={handleDelete}
-                  onArchive={handleArchive}
-                  onLog={handleLog}
-                  onPress={() => {
-                    router.push({
-                      pathname: '/habit/detail/[id]',
-                      params: { id: habit.id },
-                    });
-                  }}
-                />
+              <FadeInView delay={0}>
+                <Text variant="caption" className="text-muted-foreground mb-4 font-mono">
+                  {habits.length} active {habits.length === 1 ? 'habit' : 'habits'}
+                </Text>
+              </FadeInView>
+              {habits.map((habit, index) => (
+                <FadeInView key={habit.id} delay={50 * (index + 1)}>
+                  <HabitCard
+                    habit={habit}
+                    completionCount={completionCounts[habit.id] ?? 0}
+                    currentStreak={streaks[habit.id] ?? 0}
+                    onDelete={handleDelete}
+                    onArchive={handleArchive}
+                    onLog={handleLog}
+                    onPress={() => {
+                      router.push({
+                        pathname: '/habit/detail/[id]',
+                        params: { id: habit.id },
+                      });
+                    }}
+                  />
+                </FadeInView>
               ))}
             </View>
           )}

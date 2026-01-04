@@ -106,7 +106,7 @@ export default function EditHabitScreen() {
     try {
       await editHabit(updatedHabit);
       haptics.success();
-      toast.success('Habit updated successfully!');
+      toast.success('Habit updated!');
       router.back();
     } catch (error) {
       haptics.error();
@@ -121,7 +121,7 @@ export default function EditHabitScreen() {
     return (
       <SafeAreaView className="flex-1 bg-background" edges={['top']}>
         <View className="flex-1 items-center justify-center">
-          <Text className="text-foreground">Loading...</Text>
+          <Text variant="body" className="text-muted-foreground">Loading...</Text>
         </View>
       </SafeAreaView>
     );
@@ -129,31 +129,34 @@ export default function EditHabitScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-      <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
+      {/* Header */}
+      <View className="flex-row items-center justify-between px-5 py-4 border-b border-border">
         <Button size="icon" variant="ghost" onPress={() => router.back()}>
-          <Icon as={ArrowLeft} className="size-5" />
+          <Icon as={ArrowLeft} className="size-5 text-foreground" />
         </Button>
-        <Text className="text-xl font-semibold text-foreground">Edit Habit</Text>
+        <Text variant="h3" className="text-foreground">Edit Habit</Text>
         <View className="w-10" />
       </View>
 
-      <ScrollView className="flex-1 p-4">
-        <View className="gap-4">
+      <ScrollView className="flex-1 p-5">
+        <View className="gap-5">
           {/* Name */}
           <View className="gap-2">
-            <Label>Habit Name *</Label>
+            <Label className="font-sans-medium">Name</Label>
             <Input
               value={name}
               onChangeText={setName}
               placeholder="e.g., Morning Meditation"
               className={errors.name ? 'border-destructive' : ''}
             />
-            {errors.name && <Text className="text-xs text-destructive">{errors.name}</Text>}
+            {errors.name && (
+              <Text variant="caption" className="text-destructive">{errors.name}</Text>
+            )}
           </View>
 
           {/* Description */}
           <View className="gap-2">
-            <Label>Description</Label>
+            <Label className="font-sans-medium">Description</Label>
             <Textarea
               value={description}
               onChangeText={setDescription}
@@ -161,39 +164,44 @@ export default function EditHabitScreen() {
               className={errors.description ? 'border-destructive' : ''}
             />
             {errors.description && (
-              <Text className="text-xs text-destructive">{errors.description}</Text>
+              <Text variant="caption" className="text-destructive">{errors.description}</Text>
             )}
           </View>
 
           {/* Category */}
           <View className="gap-2">
-            <Label>Category</Label>
+            <Label className="font-sans-medium">Category</Label>
             <Input
               value={category}
               onChangeText={setCategory}
               placeholder="e.g., Health, Productivity"
               className={errors.category ? 'border-destructive' : ''}
             />
-            {errors.category && <Text className="text-xs text-destructive">{errors.category}</Text>}
+            {errors.category && (
+              <Text variant="caption" className="text-destructive">{errors.category}</Text>
+            )}
           </View>
 
           {/* Time Range */}
-          <View className="gap-2">
-            <Label>Time Range *</Label>
+          <View className="gap-3">
+            <Label className="font-sans-medium">Time Range</Label>
             <View className="flex-row flex-wrap gap-2">
               {TIME_RANGES.map((range) => (
                 <Pressable
                   key={range.value}
                   onPress={() => setTimeRange(range.value)}
-                  className={`px-4 py-2 rounded-lg border ${
+                  className={`px-4 py-2.5 rounded-full border ${
                     timeRange === range.value
                       ? 'bg-primary border-primary'
-                      : 'bg-card border-border'
-                  }`}>
+                      : 'bg-transparent border-border'
+                  }`}
+                >
                   <Text
-                    className={
+                    variant="body"
+                    className={`font-sans-medium ${
                       timeRange === range.value ? 'text-primary-foreground' : 'text-foreground'
-                    }>
+                    }`}
+                  >
                     {range.label}
                   </Text>
                 </Pressable>
@@ -203,32 +211,33 @@ export default function EditHabitScreen() {
 
           {/* Custom Time Range */}
           {timeRange === 'custom' && (
-            <View className="gap-2">
-              <Label>Custom Period *</Label>
-              <View className="flex-row gap-2">
+            <View className="gap-3">
+              <Label className="font-sans-medium">Custom Period</Label>
+              <View className="flex-row gap-3 items-center">
                 <Input
                   value={customValue}
                   onChangeText={setCustomValue}
                   placeholder="1"
                   keyboardType="number-pad"
-                  className="flex-1"
+                  className="w-20"
                 />
-                <View className="flex-row gap-2">
+                <View className="flex-row gap-2 flex-1">
                   {CUSTOM_UNITS.map((unit) => (
                     <Pressable
                       key={unit.value}
                       onPress={() => setCustomUnit(unit.value)}
-                      className={`px-3 py-2 rounded-lg border ${
+                      className={`px-3 py-2 rounded-full border flex-1 items-center ${
                         customUnit === unit.value
                           ? 'bg-primary border-primary'
-                          : 'bg-card border-border'
-                      }`}>
+                          : 'bg-transparent border-border'
+                      }`}
+                    >
                       <Text
-                        className={
-                          customUnit === unit.value
-                            ? 'text-primary-foreground'
-                            : 'text-foreground'
-                        }>
+                        variant="caption"
+                        className={`font-sans-medium ${
+                          customUnit === unit.value ? 'text-primary-foreground' : 'text-foreground'
+                        }`}
+                      >
                         {unit.label}
                       </Text>
                     </Pressable>
@@ -240,7 +249,7 @@ export default function EditHabitScreen() {
 
           {/* Target Frequency */}
           <View className="gap-2">
-            <Label>Target Frequency *</Label>
+            <Label className="font-sans-medium">Target Frequency</Label>
             <Input
               value={targetFrequency}
               onChangeText={setTargetFrequency}
@@ -248,17 +257,19 @@ export default function EditHabitScreen() {
               keyboardType="number-pad"
               className={errors.targetFrequency ? 'border-destructive' : ''}
             />
-            <Text className="text-xs text-muted-foreground">
-              How many times per {timeRange === 'custom' ? 'custom period' : timeRange.slice(0, -2)}
+            <Text variant="caption" className="text-muted-foreground">
+              Times per {timeRange === 'custom' ? 'period' : timeRange.replace('ly', '')}
             </Text>
             {errors.targetFrequency && (
-              <Text className="text-xs text-destructive">{errors.targetFrequency}</Text>
+              <Text variant="caption" className="text-destructive">{errors.targetFrequency}</Text>
             )}
           </View>
 
           {/* Save Button */}
           <Button onPress={handleSave} disabled={isLoading} className="mt-4">
-            <Text>{isLoading ? 'Saving...' : 'Save Changes'}</Text>
+            <Text className="text-primary-foreground font-sans-medium">
+              {isLoading ? 'Saving...' : 'Save Changes'}
+            </Text>
           </Button>
         </View>
       </ScrollView>
