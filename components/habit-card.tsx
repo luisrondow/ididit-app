@@ -2,7 +2,7 @@
 
 import { View, Pressable } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { MoreVertical, Archive, Trash2, Edit, ArchiveRestore, CheckCircle2, Circle } from 'lucide-react-native';
+import { MoreVertical, Archive, Trash2, Edit, ArchiveRestore, CheckCircle2, Circle, Flame } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
 import type { Habit } from '@/types/models';
 import { useState } from 'react';
@@ -12,13 +12,14 @@ import { useRouter } from 'expo-router';
 interface HabitCardProps {
   habit: Habit;
   completionCount?: number;
+  currentStreak?: number;
   onDelete?: (id: string) => void;
   onArchive?: (id: string, isArchived: boolean) => void;
   onLog?: (habitId: string) => void;
   onPress?: () => void;
 }
 
-export function HabitCard({ habit, completionCount = 0, onDelete, onArchive, onLog, onPress }: HabitCardProps) {
+export function HabitCard({ habit, completionCount = 0, currentStreak = 0, onDelete, onArchive, onLog, onPress }: HabitCardProps) {
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
 
@@ -96,6 +97,14 @@ export function HabitCard({ habit, completionCount = 0, onDelete, onArchive, onL
                   {habit.targetFrequency}x per period
                 </Text>
               </View>
+              {currentStreak > 0 && (
+                <View className="bg-orange-100 dark:bg-orange-900/30 px-2 py-1 rounded flex-row items-center gap-1">
+                  <Icon as={Flame} className="size-3 text-orange-600 dark:text-orange-400" />
+                  <Text className="text-xs text-orange-600 dark:text-orange-400 font-medium">
+                    {currentStreak} {currentStreak === 1 ? 'day' : 'days'}
+                  </Text>
+                </View>
+              )}
               {habit.category && (
                 <View className="bg-accent px-2 py-1 rounded">
                   <Text className="text-xs text-accent-foreground font-medium">
