@@ -2,7 +2,7 @@
 
 import { View, Pressable } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { MoreVertical, Archive, Trash2, Edit, ArchiveRestore } from 'lucide-react-native';
+import { MoreVertical, Archive, Trash2, Edit, ArchiveRestore, CheckCircle2, Circle } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
 import type { Habit } from '@/types/models';
 import { useState } from 'react';
@@ -11,14 +11,26 @@ import { useRouter } from 'expo-router';
 
 interface HabitCardProps {
   habit: Habit;
+  completionCount?: number;
   onDelete?: (id: string) => void;
   onArchive?: (id: string, isArchived: boolean) => void;
+  onLog?: (habitId: string) => void;
   onPress?: () => void;
 }
 
-export function HabitCard({ habit, onDelete, onArchive, onPress }: HabitCardProps) {
+export function HabitCard({ habit, completionCount = 0, onDelete, onArchive, onLog, onPress }: HabitCardProps) {
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
+
+  const isCompleted = completionCount >= habit.targetFrequency;
+  const progressText = `${completionCount}/${habit.targetFrequency}`;
+
+  const handleLog = (e: any) => {
+    e.stopPropagation();
+    if (onLog) {
+      onLog(habit.id);
+    }
+  };
 
   const getTimeRangeLabel = () => {
     if (habit.timeRange === 'custom' && habit.customTimeRange) {
@@ -54,7 +66,22 @@ export function HabitCard({ habit, onDelete, onArchive, onPress }: HabitCardProp
       <View className="bg-card border border-border rounded-lg p-4 mb-3">
         <View className="flex-row items-start justify-between">
           <View className="flex-1">
-            <Text className="text-lg font-semibold text-foreground">{habit.name}</Text>
+            <View className="flex-row items-center justify-between mb-1">
+              <Text className="text-lg font-semibold text-foreground">{habit.name}</Text>
+              {onLog && (
+                <View className="flex-row items-center gap-2">
+                  <Text className={`text-sm font-medium ${isCompleted ? 'text-green-600' : 'text-muted-foreground'}`}>
+                    {progressText}
+                  </Text>
+                  <Pressable onPress={handleLog}>
+                    <Icon
+                      as={isCompleted ? CheckCircle2 : Circle}
+                      className={`size-8 ${isCompleted ? 'text-green-600' : 'text-muted-foreground'}`}
+                    />
+                  </Pressable>
+                </View>
+              )}
+            </View>
             {habit.description && (
               <Text className="text-sm text-muted-foreground mt-1" numberOfLines={2}>
                 {habit.description}
@@ -83,7 +110,7 @@ export function HabitCard({ habit, onDelete, onArchive, onPress }: HabitCardProp
               )}
             </View>
           </View>
-          <View className="relative">
+          <View className="relative ml-2">
             <Button
               size="icon"
               variant="ghost"
