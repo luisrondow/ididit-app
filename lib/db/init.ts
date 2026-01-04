@@ -2,6 +2,7 @@
 
 import * as SQLite from 'expo-sqlite';
 import { CREATE_HABITS_TABLE, CREATE_LOG_ENTRIES_TABLE, CREATE_INDEXES } from './schema';
+import { runMigrations, setVersion, CURRENT_DB_VERSION } from './migrations';
 
 const DB_NAME = 'ididit.db';
 
@@ -25,6 +26,12 @@ export async function initDatabase(): Promise<SQLite.SQLiteDatabase> {
     await database.execAsync(CREATE_HABITS_TABLE);
     await database.execAsync(CREATE_LOG_ENTRIES_TABLE);
     await database.execAsync(CREATE_INDEXES);
+
+    // Run migrations to upgrade schema if needed
+    await runMigrations(database);
+
+    // Set initial version if this is a new database
+    await setVersion(database, CURRENT_DB_VERSION);
 
     console.log('Database initialized successfully');
     return database;

@@ -12,6 +12,7 @@ import { subtractMonthsFromDate, startOfDay, endOfDay } from '@/lib/utils/date-h
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function CalendarScreen() {
   const [heatmapData, setHeatmapData] = useState<HeatmapData[]>([]);
@@ -81,8 +82,22 @@ export default function CalendarScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
         <View className="p-4 gap-4">
           {isLoading && heatmapData.length === 0 ? (
-            <View className="bg-card border border-border rounded-lg p-6 items-center justify-center min-h-[200px]">
-              <Text className="text-muted-foreground">Loading calendar...</Text>
+            <View className="gap-4">
+              {/* Summary Stats Skeleton */}
+              <View className="flex-row gap-3">
+                <View className="flex-1 bg-card border border-border rounded-lg p-4 gap-2">
+                  <Skeleton width={60} height={32} />
+                  <Skeleton width={80} height={12} />
+                </View>
+                <View className="flex-1 bg-card border border-border rounded-lg p-4 gap-2">
+                  <Skeleton width={60} height={32} />
+                  <Skeleton width={80} height={12} />
+                </View>
+              </View>
+              {/* Heatmap Skeleton */}
+              <View className="bg-card border border-border rounded-lg p-4 gap-3">
+                <Skeleton width="100%" height={200} />
+              </View>
             </View>
           ) : (
             <>

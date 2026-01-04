@@ -1,6 +1,6 @@
 // Edit habit screen
 
-import { View, ScrollView, Pressable, Alert } from 'react-native';
+import { View, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/ui/text';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,8 @@ import type { Habit } from '@/types/models';
 import { validateHabit } from '@/lib/utils/validators';
 import { ArrowLeft } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
+import { useToast } from '@/lib/context/toast-context';
+import { haptics } from '@/lib/utils/haptics';
 
 const TIME_RANGES = [
   { value: 'daily', label: 'Daily' },
@@ -31,6 +33,7 @@ const CUSTOM_UNITS = [
 export default function EditHabitScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const toast = useToast();
   const { getHabit, editHabit } = useHabitsStore();
 
   const [habit, setHabit] = useState<Habit | null>(null);
@@ -102,9 +105,12 @@ export default function EditHabitScreen() {
 
     try {
       await editHabit(updatedHabit);
+      haptics.success();
+      toast.success('Habit updated successfully!');
       router.back();
     } catch (error) {
-      Alert.alert('Error', 'Failed to update habit');
+      haptics.error();
+      toast.error('Failed to update habit');
       console.error('Error updating habit:', error);
     } finally {
       setIsLoading(false);

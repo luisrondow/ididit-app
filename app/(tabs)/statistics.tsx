@@ -11,6 +11,7 @@ import { getLogEntriesByHabitId } from '@/lib/repositories/log-repository';
 import { calculateStreak } from '@/lib/utils/streak-calculator';
 import { TrendingUp, Target, Flame, CheckCircle2, Calendar, Award } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function StatisticsScreen() {
   const { habits, loadActiveHabits } = useHabitsStore();
@@ -92,8 +93,32 @@ export default function StatisticsScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
         <View className="p-4 gap-4">
           {isLoading ? (
-            <View className="bg-card border border-border rounded-lg p-6 items-center justify-center min-h-[200px]">
-              <Text className="text-muted-foreground">Loading statistics...</Text>
+            <View className="gap-4">
+              {/* Stats Grid Skeleton */}
+              <View className="flex-row gap-3">
+                <View className="flex-1 bg-card border border-border rounded-lg p-4 gap-2">
+                  <Skeleton width={40} height={40} rounded="full" />
+                  <Skeleton width={50} height={28} />
+                  <Skeleton width="100%" height={12} />
+                </View>
+                <View className="flex-1 bg-card border border-border rounded-lg p-4 gap-2">
+                  <Skeleton width={40} height={40} rounded="full" />
+                  <Skeleton width={50} height={28} />
+                  <Skeleton width="100%" height={12} />
+                </View>
+              </View>
+              <View className="flex-row gap-3">
+                <View className="flex-1 bg-card border border-border rounded-lg p-4 gap-2">
+                  <Skeleton width={40} height={40} rounded="full" />
+                  <Skeleton width={50} height={28} />
+                  <Skeleton width="100%" height={12} />
+                </View>
+                <View className="flex-1 bg-card border border-border rounded-lg p-4 gap-2">
+                  <Skeleton width={40} height={40} rounded="full" />
+                  <Skeleton width={50} height={28} />
+                  <Skeleton width="100%" height={12} />
+                </View>
+              </View>
             </View>
           ) : (
             <>
