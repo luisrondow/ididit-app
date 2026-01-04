@@ -8,14 +8,20 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useHabitsStore } from '@/lib/store/habits-store';
+import { useLogsStore } from '@/lib/store/logs-store';
 import { useEffect, useState } from 'react';
 import { HabitCard } from '@/components/habit-card';
 import { useRouter } from 'expo-router';
+import type { LogEntry } from '@/types/models';
+import { getCompletionCountForDate } from '@/lib/repositories/log-repository';
+import { startOfDay, endOfDay } from '@/lib/utils/date-helpers';
 
 export default function DashboardScreen() {
   const router = useRouter();
   const { habits, loadActiveHabits, removeHabit, toggleArchive, isLoading } = useHabitsStore();
+  const { addLog } = useLogsStore();
   const [refreshing, setRefreshing] = useState(false);
+  const [completionCounts, setCompletionCounts] = useState<Record<string, number>>({});
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -27,14 +33,51 @@ export default function DashboardScreen() {
     loadHabits();
   }, []);
 
+  useEffect(() => {
+    if (habits.length > 0) {
+      loadCompletionCounts();
+    }
+  }, [habits]);
+
   const loadHabits = async () => {
     await loadActiveHabits();
+  };
+
+  const loadCompletionCounts = async () => {
+    const today = new Date().toISOString();
+    const counts: Record<string, number> = {};
+
+    for (const habit of habits) {
+      const count = await getCompletionCountForDate(habit.id, today);
+      counts[habit.id] = count;
+    }
+
+    setCompletionCounts(counts);
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
     await loadHabits();
     setRefreshing(false);
+  };
+
+  const handleLog = async (habitId: string) => {
+    const now = new Date().toISOString();
+    const newLog: LogEntry = {
+      id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      habitId,
+      completedAt: now,
+      loggedAt: now,
+    };
+
+    try {
+      await addLog(newLog);
+      // Update completion count for this habit
+      await loadCompletionCounts();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to log completion');
+      console.error('Error logging completion:', error);
+    }
   };
 
   const handleDelete = (id: string) => {
@@ -106,8 +149,10 @@ export default function DashboardScreen() {
                 <HabitCard
                   key={habit.id}
                   habit={habit}
+                  completionCount={completionCounts[habit.id] ?? 0}
                   onDelete={handleDelete}
                   onArchive={handleArchive}
+                  onLog={handleLog}
                   onPress={() => {
                     // TODO: Navigate to habit detail view
                     console.log('Navigate to habit detail:', habit.id);
