@@ -15,7 +15,7 @@ import { getSingleHabitHeatmapData, getCompletionStats } from '@/lib/repositorie
 import { getLogEntriesByHabitId } from '@/lib/repositories/log-repository';
 import { calculateStreak } from '@/lib/utils/streak-calculator';
 import type { HeatmapData } from '@/types/models';
-import { subMonths, startOfDay, endOfDay } from '@/lib/utils/date-helpers';
+import { subtractMonthsFromDate, startOfDay, endOfDay } from '@/lib/utils/date-helpers';
 
 export default function HabitDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -50,7 +50,7 @@ export default function HabitDetailScreen() {
 
       // Load heatmap data for last 3 months
       const endDate = endOfDay(new Date()).toISOString();
-      const startDate = startOfDay(subMonths(new Date(), 3)).toISOString();
+      const startDate = startOfDay(subtractMonthsFromDate(new Date(), 3)).toISOString();
       const heatmap = await getSingleHabitHeatmapData(id, startDate, endDate);
       setHeatmapData(heatmap);
 
@@ -61,7 +61,7 @@ export default function HabitDetailScreen() {
       setLongestStreak(streakInfo.longestStreak);
 
       // Calculate completion stats for last 30 days
-      const last30DaysStart = startOfDay(subMonths(new Date(), 1)).toISOString();
+      const last30DaysStart = startOfDay(subtractMonthsFromDate(new Date(), 1)).toISOString();
       const stats = await getCompletionStats(id, last30DaysStart, endDate);
       setCompletionRate(stats.completionRate);
       setTotalCompletions(stats.totalCompletions);
