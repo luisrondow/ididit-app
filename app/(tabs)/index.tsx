@@ -13,8 +13,9 @@ import { useEffect, useState } from 'react';
 import { HabitCard } from '@/components/habit-card';
 import { useRouter } from 'expo-router';
 import type { LogEntry } from '@/types/models';
-import { getCompletionCountForDate } from '@/lib/repositories/log-repository';
+import { getCompletionCountForDate, getLogEntriesByHabitId } from '@/lib/repositories/log-repository';
 import { startOfDay, endOfDay } from '@/lib/utils/date-helpers';
+import { calculateStreak } from '@/lib/utils/streak-calculator';
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -22,6 +23,7 @@ export default function DashboardScreen() {
   const { addLog } = useLogsStore();
   const [refreshing, setRefreshing] = useState(false);
   const [completionCounts, setCompletionCounts] = useState<Record<string, number>>({});
+  const [streaks, setStreaks] = useState<Record<string, number>>({});
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -36,6 +38,7 @@ export default function DashboardScreen() {
   useEffect(() => {
     if (habits.length > 0) {
       loadCompletionCounts();
+      loadStreaks();
     }
   }, [habits]);
 
@@ -55,6 +58,18 @@ export default function DashboardScreen() {
     setCompletionCounts(counts);
   };
 
+  const loadStreaks = async () => {
+    const streakData: Record<string, number> = {};
+
+    for (const habit of habits) {
+      const logs = await getLogEntriesByHabitId(habit.id);
+      const streakInfo = calculateStreak(habit, logs);
+      streakData[habit.id] = streakInfo.currentStreak;
+    }
+
+    setStreaks(streakData);
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadHabits();
@@ -72,8 +87,9 @@ export default function DashboardScreen() {
 
     try {
       await addLog(newLog);
-      // Update completion count for this habit
+      // Update completion count and streaks for this habit
       await loadCompletionCounts();
+      await loadStreaks();
     } catch (error) {
       Alert.alert('Error', 'Failed to log completion');
       console.error('Error logging completion:', error);
@@ -150,6 +166,7 @@ export default function DashboardScreen() {
                   key={habit.id}
                   habit={habit}
                   completionCount={completionCounts[habit.id] ?? 0}
+                  currentStreak={streaks[habit.id] ?? 0}
                   onDelete={handleDelete}
                   onArchive={handleArchive}
                   onLog={handleLog}
