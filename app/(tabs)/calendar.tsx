@@ -13,7 +13,6 @@ import { ChevronLeft, ChevronRight, Calendar, TrendingUp } from 'lucide-react-na
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Skeleton } from '@/components/ui/skeleton';
-import { FloatingActionButton } from '@/components/floating-action-button';
 import { useFocusEffect } from 'expo-router';
 
 export default function CalendarScreen() {
@@ -191,8 +190,6 @@ export default function CalendarScreen() {
           )}
         </View>
       </ScrollView>
-
-      <FloatingActionButton />
     </SafeAreaView>
   );
 }

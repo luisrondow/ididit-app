@@ -1,7 +1,7 @@
 // Zustand store for log entries
 
 import { create } from 'zustand';
-import type { LogEntry } from '@/types/models';
+import type { LogEntry, Goal } from '@/types/models';
 import {
   createLogEntry,
   getLogEntryById,
@@ -12,8 +12,14 @@ import {
   updateLogEntry,
   deleteLogEntry,
   deleteLogEntriesByGoalId,
+  getTotalCompletionCount,
   type LogEntryWithGoal,
 } from '../repositories/log-repository';
+
+// Result of adding a log - indicates if a milestone was just completed
+export interface AddLogResult {
+  milestoneJustCompleted: boolean;
+}
 
 interface LogsState {
   logs: LogEntry[];
@@ -28,6 +34,11 @@ interface LogsState {
   loadAllLogs: () => Promise<void>;
   getLog: (id: string) => Promise<LogEntry | null>;
   addLog: (logEntry: LogEntry) => Promise<void>;
+  /**
+   * Add a log entry and check if it completes a finite goal (milestone)
+   * Returns info about whether the milestone was just completed
+   */
+  addLogWithMilestoneCheck: (logEntry: LogEntry, goal: Goal) => Promise<AddLogResult>;
   editLog: (logEntry: LogEntry) => Promise<void>;
   removeLog: (id: string) => Promise<void>;
   removeLogsByGoalId: (goalId: string) => Promise<void>;
@@ -109,6 +120,38 @@ export const useLogsStore = create<LogsState>((set, get) => ({
       // Reload logs for the goal
       const logs = await getLogEntriesByGoalId(logEntry.goalId);
       set({ logs, isLoading: false });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create log';
+      set({ error: errorMessage, isLoading: false });
+      console.error('Error creating log:', error);
+      throw error;
+    }
+  },
+
+  addLogWithMilestoneCheck: async (logEntry: LogEntry, goal: Goal) => {
+    set({ isLoading: true, error: null });
+    try {
+      // For finite goals, check completion count BEFORE adding this log
+      let previousCount = 0;
+      if (goal.goalType === 'finite') {
+        previousCount = await getTotalCompletionCount(logEntry.goalId);
+      }
+
+      // Add the log entry
+      await createLogEntry(logEntry);
+
+      // Reload logs for the goal
+      const logs = await getLogEntriesByGoalId(logEntry.goalId);
+      set({ logs, isLoading: false });
+
+      // Check if this log entry just completed the milestone
+      // (previous count was below target, now it equals or exceeds target)
+      const milestoneJustCompleted =
+        goal.goalType === 'finite' &&
+        previousCount < goal.targetCount &&
+        previousCount + 1 >= goal.targetCount;
+
+      return { milestoneJustCompleted };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to create log';
       set({ error: errorMessage, isLoading: false });

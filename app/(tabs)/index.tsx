@@ -16,7 +16,10 @@ import {
   getLogEntriesByGoalId,
 } from '@/lib/repositories/log-repository';
 import { calculateStreak } from '@/lib/utils/streak-calculator';
-import { calculateFiniteGoalProgress, getCompletionCountForCurrentPeriod } from '@/lib/utils/completion-calculator';
+import {
+  calculateFiniteGoalProgress,
+  getCompletionCountForCurrentPeriod,
+} from '@/lib/utils/completion-calculator';
 import type { FiniteGoalProgress } from '@/types/models';
 import { useToast } from '@/lib/context/toast-context';
 import { SkeletonCard } from '@/components/ui/skeleton';
@@ -144,8 +147,8 @@ export default function DashboardScreen() {
   }, [router]);
 
   // Separate goals by type for display
-  const recurringGoals = goals.filter(g => g.goalType === 'recurring');
-  const finiteGoals = goals.filter(g => g.goalType === 'finite');
+  const recurringGoals = goals.filter((g) => g.goalType === 'recurring');
+  const finiteGoals = goals.filter((g) => g.goalType === 'finite');
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
@@ -204,8 +207,10 @@ export default function DashboardScreen() {
                 <>
                   {finiteGoals.length > 0 && (
                     <FadeInView delay={25}>
-                      <Text variant="caption" className="mb-2 font-sans-medium text-muted-foreground uppercase tracking-wide">
-                        Recurring
+                      <Text
+                        variant="caption"
+                        className="mb-2 font-sans-medium uppercase tracking-wide text-muted-foreground">
+                        Habit
                       </Text>
                     </FadeInView>
                   )}
@@ -234,8 +239,10 @@ export default function DashboardScreen() {
                 <>
                   {recurringGoals.length > 0 && (
                     <FadeInView delay={50 * (recurringGoals.length + 1)}>
-                      <Text variant="caption" className="mb-2 mt-4 font-sans-medium text-muted-foreground uppercase tracking-wide">
-                        Finite Goals
+                      <Text
+                        variant="caption"
+                        className="mb-2 mt-4 font-sans-medium uppercase tracking-wide text-muted-foreground">
+                        Milestones
                       </Text>
                     </FadeInView>
                   )}

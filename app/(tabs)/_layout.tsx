@@ -1,7 +1,7 @@
 // Tab navigation layout
 
 import { Tabs } from 'expo-router';
-import { Home, Calendar, ClipboardList } from 'lucide-react-native';
+import { Sprout, Calendar, ClipboardList } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -44,8 +44,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Habits',
-          tabBarIcon: ({ color, size }) => <Home size={size - 2} color={color} strokeWidth={2} />,
+          title: 'Growth',
+          tabBarIcon: ({ color, size }) => <Sprout size={size - 2} color={color} strokeWidth={2} />,
         }}
       />
       <Tabs.Screen

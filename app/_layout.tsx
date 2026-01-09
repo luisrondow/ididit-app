@@ -9,6 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
 import { useEffect, useState } from 'react';
 import { View, Text } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ToastProvider } from '@/lib/context/toast-context';
 import { ErrorBoundary as AppErrorBoundary } from '@/components/error-boundary';
 import { useFonts } from 'expo-font';
@@ -77,23 +78,25 @@ export default function RootLayout() {
   }
 
   return (
-    <AppErrorBoundary>
-      <ThemeProvider value={NAV_THEME[colorScheme ?? 'light']}>
-        <ToastProvider>
-          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-            }}
-          >
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="index" options={{ headerShown: false }} />
-            <Stack.Screen name="statistics" options={{ headerShown: false }} />
-            <Stack.Screen name="log/new" options={{ headerShown: false }} />
-          </Stack>
-          <PortalHost />
-        </ToastProvider>
-      </ThemeProvider>
-    </AppErrorBoundary>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AppErrorBoundary>
+        <ThemeProvider value={NAV_THEME[colorScheme ?? 'light']}>
+          <ToastProvider>
+            <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+            <Stack
+              screenOptions={{
+                headerShown: false,
+              }}
+            >
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="index" options={{ headerShown: false }} />
+              <Stack.Screen name="statistics" options={{ headerShown: false }} />
+              <Stack.Screen name="log/new" options={{ headerShown: false }} />
+            </Stack>
+            <PortalHost />
+          </ToastProvider>
+        </ThemeProvider>
+      </AppErrorBoundary>
+    </GestureHandlerRootView>
   );
 }

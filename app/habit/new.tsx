@@ -19,8 +19,8 @@ import { haptics } from '@/lib/utils/haptics';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 const GOAL_TYPES = [
-  { value: 'recurring', label: 'Recurring', icon: Repeat, description: 'Resets each period' },
-  { value: 'finite', label: 'Finite', icon: Target, description: 'One-time target' },
+  { value: 'recurring', label: 'Habit', icon: Repeat, description: 'Resets each period' },
+  { value: 'finite', label: 'Milestone', icon: Target, description: 'One-time target' },
 ] as const;
 
 const TIME_RANGES = [
@@ -49,6 +49,14 @@ export default function NewGoalScreen() {
   const [customValue, setCustomValue] = useState('1');
   const [customUnit, setCustomUnit] = useState<'days' | 'weeks' | 'months'>('days');
   const [targetCount, setTargetCount] = useState('1');
+
+  // Reset target count to 1 when switching to daily
+  const handleTimeRangeChange = (newTimeRange: 'daily' | 'weekly' | 'monthly' | 'custom') => {
+    setTimeRange(newTimeRange);
+    if (newTimeRange === 'daily') {
+      setTargetCount('1');
+    }
+  };
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -224,7 +232,7 @@ export default function NewGoalScreen() {
                 {TIME_RANGES.map((range) => (
                   <Pressable
                     key={range.value}
-                    onPress={() => setTimeRange(range.value)}
+                    onPress={() => handleTimeRangeChange(range.value)}
                     className={`px-4 py-2.5 rounded-full border ${
                       timeRange === range.value
                         ? 'bg-primary border-primary'
@@ -283,27 +291,29 @@ export default function NewGoalScreen() {
             </View>
           )}
 
-          {/* Target Count */}
-          <View className="gap-2">
-            <Label className="font-sans-medium">
-              {goalType === 'recurring' ? 'Target per Period' : 'Target Count'}
-            </Label>
-            <Input
-              value={targetCount}
-              onChangeText={setTargetCount}
-              placeholder="1"
-              keyboardType="number-pad"
-              className={errors.targetCount ? 'border-destructive' : ''}
-            />
-            <Text variant="caption" className="text-muted-foreground">
-              {goalType === 'recurring'
-                ? `Times per ${timeRange === 'custom' ? 'period' : timeRange.replace('ly', '')}`
-                : 'Total times to complete this goal'}
-            </Text>
-            {errors.targetCount && (
-              <Text variant="caption" className="text-destructive">{errors.targetCount}</Text>
-            )}
-          </View>
+          {/* Target Count (hidden for daily recurring goals) */}
+          {!(goalType === 'recurring' && timeRange === 'daily') && (
+            <View className="gap-2">
+              <Label className="font-sans-medium">
+                {goalType === 'recurring' ? 'Target per Period' : 'Target Count'}
+              </Label>
+              <Input
+                value={targetCount}
+                onChangeText={setTargetCount}
+                placeholder="1"
+                keyboardType="number-pad"
+                className={errors.targetCount ? 'border-destructive' : ''}
+              />
+              <Text variant="caption" className="text-muted-foreground">
+                {goalType === 'recurring'
+                  ? `Times per ${timeRange === 'custom' ? 'period' : timeRange.replace('ly', '')}`
+                  : 'Total times to complete this goal'}
+              </Text>
+              {errors.targetCount && (
+                <Text variant="caption" className="text-destructive">{errors.targetCount}</Text>
+              )}
+            </View>
+          )}
 
           {/* Deadline (Finite only) */}
           {goalType === 'finite' && (

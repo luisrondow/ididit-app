@@ -25,11 +25,12 @@ export function calculateStreak(
     return {
       currentStreak: 0,
       longestStreak: 0,
-      lastCompletedDate: logEntries.length > 0 
-        ? logEntries.sort((a, b) => 
-            new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
-          )[0].completedAt 
-        : undefined,
+      lastCompletedDate:
+        logEntries.length > 0
+          ? logEntries.sort(
+              (a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
+            )[0].completedAt
+          : undefined,
     };
   }
 
@@ -93,38 +94,59 @@ function calculateCurrentStreak(
     return 0;
   }
 
-  const today = startOfDay(referenceDate);
-
-  // Check if goal is active today
-  const goalStartDate = new Date(goal.startDate);
-  if (goalStartDate > today) {
-    return 0; // Goal hasn't started yet
+  // Group completion dates by period (same approach as longestStreak)
+  const periodSet = new Set<string>();
+  for (const dateStr of completionDates) {
+    const date = new Date(dateStr + 'T12:00:00'); // Use noon to avoid timezone issues
+    const periodStart = getPeriodStart(goal, date);
+    const periodKey = getDateString(periodStart);
+    periodSet.add(periodKey);
   }
 
-  let streak = 0;
-  let currentPeriodStart = today;
+  // Sort periods (newest first)
+  const sortedPeriods = Array.from(periodSet).sort((a, b) => b.localeCompare(a));
 
-  // Walk backwards through time periods
-  while (true) {
-    const periodStart = getPeriodStart(goal, currentPeriodStart);
-    const periodStartStr = getDateString(periodStart);
+  if (sortedPeriods.length === 0) {
+    return 0;
+  }
 
-    // Check if any completion falls within this period
-    const hasCompletionInPeriod = completionDates.some((dateStr) => {
-      return dateStr >= periodStartStr && dateStr <= getDateString(currentPeriodStart);
-    });
+  // Get today's period
+  const today = startOfDay(referenceDate);
+  const todayPeriodKey = getDateString(getPeriodStart(goal, today));
 
-    if (!hasCompletionInPeriod) {
-      break; // Streak is broken
+  // Find the starting point for current streak
+  // If today has a completion, start from today
+  // Otherwise, start from yesterday's period
+  let startIndex = 0;
+  if (sortedPeriods[0] !== todayPeriodKey) {
+    // Today doesn't have a completion
+    // Check if the most recent completion is from the previous period
+    const yesterdayPeriod = subtractOnePeriod(goal, today);
+    const yesterdayPeriodKey = getDateString(yesterdayPeriod);
+
+    if (sortedPeriods[0] !== yesterdayPeriodKey) {
+      // Most recent completion is older than yesterday - no current streak
+      return 0;
     }
+    // Start counting from yesterday
+    startIndex = 0;
+  }
 
-    streak++;
+  // Count consecutive periods
+  let streak = 0;
+  let expectedPeriodKey = sortedPeriods[startIndex];
 
-    // Move to previous period
-    currentPeriodStart = subtractOnePeriod(goal, periodStart);
+  for (let i = startIndex; i < sortedPeriods.length; i++) {
+    const periodKey = sortedPeriods[i];
 
-    // Don't go before goal start date
-    if (currentPeriodStart < goalStartDate) {
+    if (periodKey === expectedPeriodKey) {
+      streak++;
+      // Calculate the expected previous period
+      const currentPeriod = new Date(periodKey + 'T12:00:00'); // Use noon to avoid timezone issues
+      const prevPeriod = subtractOnePeriod(goal, currentPeriod);
+      expectedPeriodKey = getDateString(prevPeriod);
+    } else {
+      // Gap found - streak is broken
       break;
     }
   }
@@ -234,7 +256,9 @@ function getPeriodStart(goal: Goal, date: Date): Date {
       }
 
       const periodNumber = Math.floor(daysSinceStart / periodLengthInDays);
-      return new Date(goalStart.getTime() + periodNumber * periodLengthInDays * 24 * 60 * 60 * 1000);
+      return new Date(
+        goalStart.getTime() + periodNumber * periodLengthInDays * 24 * 60 * 60 * 1000
+      );
 
     default:
       return dateObj;
