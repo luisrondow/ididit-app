@@ -11,11 +11,11 @@ export async function createLogEntry(logEntry: LogEntry): Promise<void> {
 
   await db.runAsync(
     `INSERT INTO log_entries (
-      id, habit_id, completed_at, logged_at, notes
+      id, goal_id, completed_at, logged_at, notes
     ) VALUES (?, ?, ?, ?, ?)`,
     [
       logEntry.id,
-      logEntry.habitId,
+      logEntry.goalId,
       logEntry.completedAt,
       logEntry.loggedAt,
       logEntry.notes ?? null,
@@ -42,24 +42,24 @@ export async function getLogEntryById(id: string): Promise<LogEntry | null> {
 }
 
 /**
- * Get all log entries for a specific habit
+ * Get all log entries for a specific goal
  */
-export async function getLogEntriesByHabitId(habitId: string): Promise<LogEntry[]> {
+export async function getLogEntriesByGoalId(goalId: string): Promise<LogEntry[]> {
   const db = await getDatabase();
 
   const results = await db.getAllAsync<any>(
-    'SELECT * FROM log_entries WHERE habit_id = ? ORDER BY completed_at DESC',
-    [habitId]
+    'SELECT * FROM log_entries WHERE goal_id = ? ORDER BY completed_at DESC',
+    [goalId]
   );
 
   return results.map(mapRowToLogEntry);
 }
 
 /**
- * Get log entries for a habit within a date range
+ * Get log entries for a goal within a date range
  */
 export async function getLogEntriesByDateRange(
-  habitId: string,
+  goalId: string,
   startDate: string,
   endDate: string
 ): Promise<LogEntry[]> {
@@ -67,18 +67,18 @@ export async function getLogEntriesByDateRange(
 
   const results = await db.getAllAsync<any>(
     `SELECT * FROM log_entries
-     WHERE habit_id = ?
+     WHERE goal_id = ?
      AND completed_at >= ?
      AND completed_at <= ?
      ORDER BY completed_at DESC`,
-    [habitId, startDate, endDate]
+    [goalId, startDate, endDate]
   );
 
   return results.map(mapRowToLogEntry);
 }
 
 /**
- * Get all log entries for a specific date (all habits)
+ * Get all log entries for a specific date (all goals)
  */
 export async function getLogEntriesByDate(date: string): Promise<LogEntry[]> {
   const db = await getDatabase();
@@ -102,10 +102,10 @@ export async function getLogEntriesByDate(date: string): Promise<LogEntry[]> {
 }
 
 /**
- * Check if a habit was completed on a specific date
+ * Check if a goal was completed on a specific date
  */
-export async function isHabitCompletedOnDate(
-  habitId: string,
+export async function isGoalCompletedOnDate(
+  goalId: string,
   date: string
 ): Promise<boolean> {
   const db = await getDatabase();
@@ -119,20 +119,20 @@ export async function isHabitCompletedOnDate(
 
   const result = await db.getFirstAsync<{ count: number }>(
     `SELECT COUNT(*) as count FROM log_entries
-     WHERE habit_id = ?
+     WHERE goal_id = ?
      AND completed_at >= ?
      AND completed_at <= ?`,
-    [habitId, startOfDay.toISOString(), endOfDay.toISOString()]
+    [goalId, startOfDay.toISOString(), endOfDay.toISOString()]
   );
 
   return (result?.count ?? 0) > 0;
 }
 
 /**
- * Get completion count for a habit on a specific date
+ * Get completion count for a goal on a specific date
  */
 export async function getCompletionCountForDate(
-  habitId: string,
+  goalId: string,
   date: string
 ): Promise<number> {
   const db = await getDatabase();
@@ -146,10 +146,24 @@ export async function getCompletionCountForDate(
 
   const result = await db.getFirstAsync<{ count: number }>(
     `SELECT COUNT(*) as count FROM log_entries
-     WHERE habit_id = ?
+     WHERE goal_id = ?
      AND completed_at >= ?
      AND completed_at <= ?`,
-    [habitId, startOfDay.toISOString(), endOfDay.toISOString()]
+    [goalId, startOfDay.toISOString(), endOfDay.toISOString()]
+  );
+
+  return result?.count ?? 0;
+}
+
+/**
+ * Get total completion count for a goal (for finite goals)
+ */
+export async function getTotalCompletionCount(goalId: string): Promise<number> {
+  const db = await getDatabase();
+
+  const result = await db.getFirstAsync<{ count: number }>(
+    'SELECT COUNT(*) as count FROM log_entries WHERE goal_id = ?',
+    [goalId]
   );
 
   return result?.count ?? 0;
@@ -163,13 +177,13 @@ export async function updateLogEntry(logEntry: LogEntry): Promise<void> {
 
   await db.runAsync(
     `UPDATE log_entries SET
-      habit_id = ?,
+      goal_id = ?,
       completed_at = ?,
       logged_at = ?,
       notes = ?
     WHERE id = ?`,
     [
-      logEntry.habitId,
+      logEntry.goalId,
       logEntry.completedAt,
       logEntry.loggedAt,
       logEntry.notes ?? null,
@@ -187,11 +201,48 @@ export async function deleteLogEntry(id: string): Promise<void> {
 }
 
 /**
- * Delete all log entries for a habit
+ * Delete all log entries for a goal
  */
-export async function deleteLogEntriesByHabitId(habitId: string): Promise<void> {
+export async function deleteLogEntriesByGoalId(goalId: string): Promise<void> {
   const db = await getDatabase();
-  await db.runAsync('DELETE FROM log_entries WHERE habit_id = ?', [habitId]);
+  await db.runAsync('DELETE FROM log_entries WHERE goal_id = ?', [goalId]);
+}
+
+/**
+ * Extended log entry with goal name for display
+ */
+export interface LogEntryWithGoal extends LogEntry {
+  goalName: string;
+}
+
+/**
+ * Get all log entries with goal names, ordered by completed_at DESC
+ */
+export async function getAllLogEntries(): Promise<LogEntryWithGoal[]> {
+  const db = await getDatabase();
+
+  const results = await db.getAllAsync<any>(
+    `SELECT log_entries.*, habits.name as goal_name
+     FROM log_entries
+     INNER JOIN habits ON log_entries.goal_id = habits.id
+     ORDER BY log_entries.completed_at DESC`
+  );
+
+  return results.map(mapRowToLogEntryWithGoal);
+}
+
+/**
+ * Helper function to map database row to LogEntryWithGoal object
+ */
+function mapRowToLogEntryWithGoal(row: any): LogEntryWithGoal {
+  return {
+    id: row.id,
+    goalId: row.goal_id ?? row.habit_id, // Support both column names
+    completedAt: row.completed_at,
+    loggedAt: row.logged_at,
+    notes: row.notes ?? undefined,
+    goalName: row.goal_name ?? row.habit_name,
+  };
 }
 
 /**
@@ -200,9 +251,15 @@ export async function deleteLogEntriesByHabitId(habitId: string): Promise<void> 
 function mapRowToLogEntry(row: any): LogEntry {
   return {
     id: row.id,
-    habitId: row.habit_id,
+    goalId: row.goal_id ?? row.habit_id, // Support both column names
     completedAt: row.completed_at,
     loggedAt: row.logged_at,
     notes: row.notes ?? undefined,
   };
 }
+
+// Legacy aliases for backwards compatibility
+export const getLogEntriesByHabitId = getLogEntriesByGoalId;
+export const isHabitCompletedOnDate = isGoalCompletedOnDate;
+export const deleteLogEntriesByHabitId = deleteLogEntriesByGoalId;
+export type LogEntryWithHabit = LogEntryWithGoal;

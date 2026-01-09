@@ -1,10 +1,9 @@
 // Completion percentage calculation logic
 
-import type { Habit, LogEntry, CompletionStats } from '@/types/models';
+import type { Goal, LogEntry, CompletionStats, FiniteGoalProgress } from '@/types/models';
 import {
   startOfDay,
   endOfDay,
-  getDaysInInterval,
   getDateString,
   startOfWeek,
   endOfWeek,
@@ -14,10 +13,47 @@ import {
 } from './date-helpers';
 
 /**
- * Calculate completion statistics for a habit over a period
+ * Calculate progress for a finite goal
+ * Shows overall progress toward the target count
+ */
+export function calculateFiniteGoalProgress(
+  goal: Goal,
+  logEntries: LogEntry[]
+): FiniteGoalProgress {
+  const now = new Date();
+  const startDate = new Date(goal.startDate);
+  const endDate = goal.endDate ? new Date(goal.endDate) : now;
+
+  // Count total completions (each log entry is one completion)
+  const completed = logEntries.length;
+  const target = goal.targetCount;
+  const percentage = target > 0 ? Math.min(100, Math.round((completed / target) * 100)) : 0;
+
+  // Calculate days
+  const totalDays = Math.max(1, getDaysDifference(endDate, startDate) + 1);
+  const daysElapsed = Math.max(0, getDaysDifference(now, startDate) + 1);
+  const daysRemaining = Math.max(0, getDaysDifference(endDate, now));
+
+  const isComplete = completed >= target;
+  const isOverdue = !isComplete && now > endDate;
+
+  return {
+    completed,
+    target,
+    percentage,
+    daysRemaining,
+    daysElapsed,
+    totalDays,
+    isComplete,
+    isOverdue,
+  };
+}
+
+/**
+ * Calculate completion statistics for a recurring goal over a period
  */
 export function calculateCompletionStats(
-  habit: Habit,
+  goal: Goal,
   logEntries: LogEntry[],
   periodStart: Date,
   periodEnd: Date
@@ -36,7 +72,7 @@ export function calculateCompletionStats(
   const totalCompletions = uniqueDates.length;
 
   // Calculate expected completions based on time range
-  const expectedCompletions = calculateExpectedCompletions(habit, startDate, endDate);
+  const expectedCompletions = calculateExpectedCompletions(goal, startDate, endDate);
 
   // Calculate completion rate
   const completionRate =
@@ -51,22 +87,22 @@ export function calculateCompletionStats(
 }
 
 /**
- * Calculate expected number of completions based on habit's time range and target frequency
+ * Calculate expected number of completions based on goal's time range and target count
  */
-function calculateExpectedCompletions(habit: Habit, startDate: Date, endDate: Date): number {
+function calculateExpectedCompletions(goal: Goal, startDate: Date, endDate: Date): number {
   const start = startOfDay(startDate);
   const end = endOfDay(endDate);
 
-  // Adjust start date if before habit start
-  const habitStart = new Date(habit.startDate);
-  const effectiveStart = start < habitStart ? habitStart : start;
+  // Adjust start date if before goal start
+  const goalStart = new Date(goal.startDate);
+  const effectiveStart = start < goalStart ? goalStart : start;
 
-  // Adjust end date if after habit end (if specified)
+  // Adjust end date if after goal end (if specified)
   let effectiveEnd = end;
-  if (habit.endDate) {
-    const habitEnd = new Date(habit.endDate);
-    if (end > habitEnd) {
-      effectiveEnd = habitEnd;
+  if (goal.endDate) {
+    const goalEnd = new Date(goal.endDate);
+    if (end > goalEnd) {
+      effectiveEnd = goalEnd;
     }
   }
 
@@ -77,39 +113,39 @@ function calculateExpectedCompletions(habit: Habit, startDate: Date, endDate: Da
 
   const totalDays = getDaysDifference(effectiveEnd, effectiveStart) + 1; // +1 to include both start and end
 
-  switch (habit.timeRange) {
+  switch (goal.timeRange) {
     case 'daily':
-      // Daily habits: expected = target frequency × number of days
-      return habit.targetFrequency * totalDays;
+      // Daily goals: expected = target count × number of days
+      return goal.targetCount * totalDays;
 
     case 'weekly':
-      // Weekly habits: calculate number of complete + partial weeks
+      // Weekly goals: calculate number of complete + partial weeks
       const totalWeeks = Math.ceil(totalDays / 7);
-      return habit.targetFrequency * totalWeeks;
+      return goal.targetCount * totalWeeks;
 
     case 'monthly':
-      // Monthly habits: calculate number of complete + partial months
+      // Monthly goals: calculate number of complete + partial months
       const monthsDiff = getMonthsDifference(effectiveStart, effectiveEnd);
       const totalMonths = Math.ceil(monthsDiff);
-      return habit.targetFrequency * totalMonths;
+      return goal.targetCount * totalMonths;
 
     case 'custom':
-      if (!habit.customTimeRange) {
-        return habit.targetFrequency * totalDays;
+      if (!goal.customTimeRange) {
+        return goal.targetCount * totalDays;
       }
 
       // Calculate period length in days
       let periodLengthInDays = 1;
-      if (habit.customTimeRange.unit === 'days') {
-        periodLengthInDays = habit.customTimeRange.value;
-      } else if (habit.customTimeRange.unit === 'weeks') {
-        periodLengthInDays = habit.customTimeRange.value * 7;
-      } else if (habit.customTimeRange.unit === 'months') {
-        periodLengthInDays = habit.customTimeRange.value * 30; // Approximate
+      if (goal.customTimeRange.unit === 'days') {
+        periodLengthInDays = goal.customTimeRange.value;
+      } else if (goal.customTimeRange.unit === 'weeks') {
+        periodLengthInDays = goal.customTimeRange.value * 7;
+      } else if (goal.customTimeRange.unit === 'months') {
+        periodLengthInDays = goal.customTimeRange.value * 30; // Approximate
       }
 
       const totalPeriods = Math.ceil(totalDays / periodLengthInDays);
-      return habit.targetFrequency * totalPeriods;
+      return goal.targetCount * totalPeriods;
 
     default:
       return 0;
@@ -131,17 +167,17 @@ function getUniqueCompletionDates(logEntries: LogEntry[]): string[] {
 }
 
 /**
- * Calculate completion rate for current period
+ * Calculate completion rate for current period (recurring goals only)
  */
 export function calculateCurrentPeriodCompletion(
-  habit: Habit,
+  goal: Goal,
   logEntries: LogEntry[]
 ): CompletionStats {
   const now = new Date();
   let periodStart: Date;
   let periodEnd: Date = now;
 
-  switch (habit.timeRange) {
+  switch (goal.timeRange) {
     case 'daily':
       periodStart = startOfDay(now);
       periodEnd = endOfDay(now);
@@ -158,29 +194,29 @@ export function calculateCurrentPeriodCompletion(
       break;
 
     case 'custom':
-      if (!habit.customTimeRange) {
+      if (!goal.customTimeRange) {
         periodStart = startOfDay(now);
         periodEnd = endOfDay(now);
       } else {
-        // Find current custom period based on habit start date
-        const habitStart = new Date(habit.startDate);
-        const daysSinceStart = getDaysDifference(now, habitStart);
+        // Find current custom period based on goal start date
+        const goalStart = new Date(goal.startDate);
+        const daysSinceStart = getDaysDifference(now, goalStart);
 
         let periodLengthInDays = 1;
-        if (habit.customTimeRange.unit === 'days') {
-          periodLengthInDays = habit.customTimeRange.value;
-        } else if (habit.customTimeRange.unit === 'weeks') {
-          periodLengthInDays = habit.customTimeRange.value * 7;
-        } else if (habit.customTimeRange.unit === 'months') {
-          periodLengthInDays = habit.customTimeRange.value * 30;
+        if (goal.customTimeRange.unit === 'days') {
+          periodLengthInDays = goal.customTimeRange.value;
+        } else if (goal.customTimeRange.unit === 'weeks') {
+          periodLengthInDays = goal.customTimeRange.value * 7;
+        } else if (goal.customTimeRange.unit === 'months') {
+          periodLengthInDays = goal.customTimeRange.value * 30;
         }
 
         const periodNumber = Math.floor(daysSinceStart / periodLengthInDays);
         periodStart = new Date(
-          habitStart.getTime() + periodNumber * periodLengthInDays * 24 * 60 * 60 * 1000
+          goalStart.getTime() + periodNumber * periodLengthInDays * 24 * 60 * 60 * 1000
         );
         periodEnd = new Date(
-          habitStart.getTime() + (periodNumber + 1) * periodLengthInDays * 24 * 60 * 60 * 1000 - 1
+          goalStart.getTime() + (periodNumber + 1) * periodLengthInDays * 24 * 60 * 60 * 1000 - 1
         );
       }
       break;
@@ -190,7 +226,73 @@ export function calculateCurrentPeriodCompletion(
       periodEnd = endOfDay(now);
   }
 
-  return calculateCompletionStats(habit, logEntries, periodStart, periodEnd);
+  return calculateCompletionStats(goal, logEntries, periodStart, periodEnd);
+}
+
+/**
+ * Get the completion count for the current period (for recurring goals)
+ */
+export function getCompletionCountForCurrentPeriod(
+  goal: Goal,
+  logEntries: LogEntry[]
+): number {
+  const now = new Date();
+  let periodStart: Date;
+  let periodEnd: Date;
+
+  switch (goal.timeRange) {
+    case 'daily':
+      periodStart = startOfDay(now);
+      periodEnd = endOfDay(now);
+      break;
+
+    case 'weekly':
+      periodStart = startOfWeek(now);
+      periodEnd = endOfWeek(now);
+      break;
+
+    case 'monthly':
+      periodStart = startOfMonth(now);
+      periodEnd = endOfMonth(now);
+      break;
+
+    case 'custom':
+      if (!goal.customTimeRange) {
+        periodStart = startOfDay(now);
+        periodEnd = endOfDay(now);
+      } else {
+        const goalStart = new Date(goal.startDate);
+        const daysSinceStart = getDaysDifference(now, goalStart);
+
+        let periodLengthInDays = 1;
+        if (goal.customTimeRange.unit === 'days') {
+          periodLengthInDays = goal.customTimeRange.value;
+        } else if (goal.customTimeRange.unit === 'weeks') {
+          periodLengthInDays = goal.customTimeRange.value * 7;
+        } else if (goal.customTimeRange.unit === 'months') {
+          periodLengthInDays = goal.customTimeRange.value * 30;
+        }
+
+        const periodNumber = Math.floor(daysSinceStart / periodLengthInDays);
+        periodStart = new Date(
+          goalStart.getTime() + periodNumber * periodLengthInDays * 24 * 60 * 60 * 1000
+        );
+        periodEnd = new Date(
+          goalStart.getTime() + (periodNumber + 1) * periodLengthInDays * 24 * 60 * 60 * 1000 - 1
+        );
+      }
+      break;
+
+    default:
+      periodStart = startOfDay(now);
+      periodEnd = endOfDay(now);
+  }
+
+  // Count completions in the current period
+  return logEntries.filter((log) => {
+    const completedDate = new Date(log.completedAt);
+    return completedDate >= periodStart && completedDate <= periodEnd;
+  }).length;
 }
 
 /**

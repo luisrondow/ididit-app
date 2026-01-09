@@ -1,4 +1,4 @@
-// Binary heatmap component for single habit visualization
+// Binary heatmap component for single goal visualization
 
 import { View, ScrollView } from 'react-native';
 import { Text } from '@/components/ui/text';
@@ -10,7 +10,6 @@ interface HabitHeatmapProps {
   showMonthLabels?: boolean;
 }
 
-const DAYS = ['Mon', 'Wed', 'Fri'];
 const CELL_SIZE = 14;
 const CELL_GAP = 3;
 
@@ -27,7 +26,7 @@ export function HabitHeatmap({ data, showMonthLabels = true }: HabitHeatmapProps
       currentWeek.push({
         date: '',
         completionCount: 0,
-        totalHabits: 0,
+        totalGoals: 0,
         intensity: 0,
       });
     }
@@ -46,7 +45,7 @@ export function HabitHeatmap({ data, showMonthLabels = true }: HabitHeatmapProps
         currentWeek.push({
           date: '',
           completionCount: 0,
-          totalHabits: 0,
+          totalGoals: 0,
           intensity: 0,
         });
       }
@@ -81,6 +80,19 @@ export function HabitHeatmap({ data, showMonthLabels = true }: HabitHeatmapProps
     }
     return 'bg-heatmap-0';
   };
+
+  if (data.length === 0) {
+    return (
+      <View className="bg-card border border-border rounded-lg p-5">
+        <Text variant="h4" className="text-foreground mb-4">Activity</Text>
+        <View className="items-center justify-center py-8">
+          <Text variant="body" className="text-muted-foreground text-center">
+            No activity data yet
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View className="bg-card border border-border rounded-lg p-5">
@@ -157,7 +169,7 @@ export function HabitHeatmap({ data, showMonthLabels = true }: HabitHeatmapProps
 
           {/* Legend */}
           <View className="flex-row items-center gap-3 mt-4">
-            <Text variant="caption" className="text-muted-foreground">Less</Text>
+            <Text variant="caption" className="text-muted-foreground">Not done</Text>
             <View className="flex-row gap-1">
               <View 
                 className="bg-heatmap-0 rounded-sm" 
@@ -168,10 +180,13 @@ export function HabitHeatmap({ data, showMonthLabels = true }: HabitHeatmapProps
                 style={{ width: 12, height: 12 }} 
               />
             </View>
-            <Text variant="caption" className="text-muted-foreground">More</Text>
+            <Text variant="caption" className="text-muted-foreground">Done</Text>
           </View>
         </View>
       </ScrollView>
     </View>
   );
 }
+
+// Alias for backwards compatibility
+export const GoalHeatmap = HabitHeatmap;

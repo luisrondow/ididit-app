@@ -1,39 +1,47 @@
-// Calendar screen - Monthly heatmap view of all habits
+// Calendar screen - Monthly heatmap view of all goals
 
 import { View, ScrollView, RefreshControl } from 'react-native';
 import { ScreenHeader } from '@/components/screen-header';
 import { Text } from '@/components/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useEffect, useState } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { CalendarHeatmap } from '@/components/calendar-heatmap';
-import { getMultiHabitHeatmapData } from '@/lib/repositories/stats-repository';
+import { getMultiGoalHeatmapData } from '@/lib/repositories/stats-repository';
 import type { HeatmapData } from '@/types/models';
 import { subtractMonthsFromDate, startOfDay, endOfDay } from '@/lib/utils/date-helpers';
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Calendar, TrendingUp } from 'lucide-react-native';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Skeleton } from '@/components/ui/skeleton';
+import { FloatingActionButton } from '@/components/floating-action-button';
+import { useFocusEffect } from 'expo-router';
 
 export default function CalendarScreen() {
   const [heatmapData, setHeatmapData] = useState<HeatmapData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [monthsToShow, setMonthsToShow] = useState(3);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadHeatmapData();
-  }, [monthsToShow]);
+  // Reload data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadHeatmapData();
+    }, [monthsToShow])
+  );
 
   const loadHeatmapData = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const endDate = endOfDay(new Date()).toISOString();
       const startDate = startOfDay(subtractMonthsFromDate(new Date(), monthsToShow)).toISOString();
 
-      const data = await getMultiHabitHeatmapData(startDate, endDate);
+      const data = await getMultiGoalHeatmapData(startDate, endDate);
       setHeatmapData(data);
-    } catch (error) {
-      console.error('Error loading heatmap data:', error);
+    } catch (err) {
+      console.error('Error loading heatmap data:', err);
+      setError('Failed to load calendar data');
     } finally {
       setIsLoading(false);
     }
@@ -58,21 +66,33 @@ export default function CalendarScreen() {
     year: 'numeric',
   });
 
-  // Calculate some summary stats
-  const totalDaysWithActivity = heatmapData.filter((day) => day.completionCount > 0).length;
-  const averageCompletionRate =
-    heatmapData.length > 0
-      ? Math.round(
-          (heatmapData.reduce((acc, day) => {
-            if (day.totalHabits > 0) {
-              return acc + (day.completionCount / day.totalHabits) * 100;
-            }
-            return acc;
-          }, 0) /
-            heatmapData.length) *
-            10
-        ) / 10
-      : 0;
+  // Calculate summary stats with memoization
+  const stats = useMemo(() => {
+    // Active days = days where user logged at least one completion
+    const activeDays = heatmapData.filter((day) => day.completionCount > 0).length;
+    
+    // Days with goals = days where there were active goals to track
+    const daysWithGoals = heatmapData.filter((day) => day.totalGoals > 0);
+    
+    // Average completion rate = only count days where there were goals to complete
+    let avgCompletionRate = 0;
+    if (daysWithGoals.length > 0) {
+      const totalPercentage = daysWithGoals.reduce((acc, day) => {
+        return acc + (day.completionCount / day.totalGoals) * 100;
+      }, 0);
+      avgCompletionRate = Math.round((totalPercentage / daysWithGoals.length) * 10) / 10;
+    }
+
+    // Total completions in period
+    const totalCompletions = heatmapData.reduce((acc, day) => acc + day.completionCount, 0);
+
+    return {
+      activeDays,
+      daysWithGoals: daysWithGoals.length,
+      avgCompletionRate,
+      totalCompletions,
+    };
+  }, [heatmapData]);
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
@@ -81,34 +101,57 @@ export default function CalendarScreen() {
         className="flex-1"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        <View className="p-5 gap-5">
+        <View className="gap-5 p-5">
           {isLoading && heatmapData.length === 0 ? (
             <View className="gap-4">
               <View className="flex-row gap-3">
-                <View className="flex-1 bg-card border border-border rounded-lg p-5 gap-2 items-center">
+                <View className="flex-1 items-center gap-2 rounded-lg border border-border bg-card p-5">
                   <Skeleton width={60} height={32} />
                   <Skeleton width={80} height={14} />
                 </View>
-                <View className="flex-1 bg-card border border-border rounded-lg p-5 gap-2 items-center">
+                <View className="flex-1 items-center gap-2 rounded-lg border border-border bg-card p-5">
                   <Skeleton width={60} height={32} />
                   <Skeleton width={80} height={14} />
                 </View>
               </View>
-              <View className="bg-card border border-border rounded-lg p-5 gap-3">
+              <View className="gap-3 rounded-lg border border-border bg-card p-5">
                 <Skeleton width="100%" height={200} />
               </View>
+            </View>
+          ) : error ? (
+            <View className="items-center justify-center rounded-lg border border-destructive bg-card p-8">
+              <Text variant="body" className="text-center text-destructive">
+                {error}
+              </Text>
+              <Button variant="outline" size="sm" onPress={loadHeatmapData} className="mt-4">
+                <Text className="text-foreground">Retry</Text>
+              </Button>
             </View>
           ) : (
             <>
               {/* Summary Stats */}
               <View className="flex-row gap-3">
-                <View className="flex-1 bg-card border border-border rounded-lg p-5 items-center">
-                  <Text variant="mono-xl" className="text-foreground">{totalDaysWithActivity}</Text>
-                  <Text variant="caption" className="text-muted-foreground mt-1">Active Days</Text>
+                <View className="flex-1 items-center rounded-lg border border-border bg-card p-5">
+                  <Icon as={Calendar} className="mb-2 size-5 text-primary" />
+                  <Text variant="mono-xl" className="text-foreground">{stats.activeDays}</Text>
+                  <Text variant="caption" className="mt-1 text-muted-foreground">Active Days</Text>
                 </View>
-                <View className="flex-1 bg-card border border-border rounded-lg p-5 items-center">
-                  <Text variant="mono-xl" className="text-foreground">{averageCompletionRate}%</Text>
-                  <Text variant="caption" className="text-muted-foreground mt-1">Avg Completion</Text>
+                <View className="flex-1 items-center rounded-lg border border-border bg-card p-5">
+                  <Icon as={TrendingUp} className="mb-2 size-5 text-success" />
+                  <Text variant="mono-xl" className="text-foreground">{stats.avgCompletionRate}%</Text>
+                  <Text variant="caption" className="mt-1 text-muted-foreground">Avg Completion</Text>
+                </View>
+              </View>
+
+              {/* Extra stats row */}
+              <View className="flex-row gap-3">
+                <View className="flex-1 items-center rounded-lg border border-border bg-card p-4">
+                  <Text variant="mono-lg" className="text-foreground">{stats.totalCompletions}</Text>
+                  <Text variant="caption" className="mt-1 text-muted-foreground">Total Logged</Text>
+                </View>
+                <View className="flex-1 items-center rounded-lg border border-border bg-card p-4">
+                  <Text variant="mono-lg" className="text-foreground">{stats.daysWithGoals}</Text>
+                  <Text variant="caption" className="mt-1 text-muted-foreground">Days Tracked</Text>
                 </View>
               </View>
 
@@ -139,15 +182,17 @@ export default function CalendarScreen() {
               </View>
 
               {/* Info text */}
-              <View className="border border-border rounded-lg p-4">
-                <Text variant="caption" className="text-muted-foreground text-center">
-                  Intensity indicates percentage of habits completed
+              <View className="rounded-lg border border-border p-4">
+                <Text variant="caption" className="text-center text-muted-foreground">
+                  Color intensity shows % of goals completed each day
                 </Text>
               </View>
             </>
           )}
         </View>
       </ScrollView>
+
+      <FloatingActionButton />
     </SafeAreaView>
   );
 }

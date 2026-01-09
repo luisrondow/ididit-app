@@ -4,11 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**IDidIt** is a fully functional mobile habit tracker application that helps users build and maintain positive habits through goal setting, activity logging, and visual progress tracking.
+**IDidIt** is a fully functional mobile goal tracker application that helps users achieve both recurring habits and finite goals through activity logging and visual progress tracking.
 
 This is a React Native app built with Expo and styled with NativeWind (Tailwind CSS for React Native). The project uses the React Native Reusables component library and follows the "New York" style variant.
 
-**Core Value Proposition:** Simple, flexible habit tracking with customizable time ranges and clear visual feedback on progress.
+**Core Value Proposition:** Flexible goal tracking with support for both recurring habits (daily/weekly targets with streaks) and finite goals (fixed target count within a timeframe with progress tracking).
+
+**Goal Types:**
+- **Recurring Goals**: Actions performed X times per period (daily, weekly, monthly). Tracks streaks and period completion.
+- **Finite Goals**: Actions performed X times total within a deadline. Tracks overall progress percentage and time remaining.
 
 **Key Technologies:**
 - **Bun** as the JavaScript runtime and package manager
@@ -51,23 +55,25 @@ app/                              # Expo Router screens
 ├── +html.tsx                     # Web HTML wrapper
 ├── (tabs)/
 │   ├── _layout.tsx               # Tab navigation (Home, Calendar, Stats)
-│   ├── index.tsx                 # Dashboard screen
+│   ├── index.tsx                 # Dashboard screen (goals list)
 │   ├── calendar.tsx              # Calendar heatmap view
-│   └── statistics.tsx            # Statistics screen
+│   └── logs.tsx                  # Activity log
+├── statistics.tsx                # Statistics screen (stack)
 └── habit/
-    ├── new.tsx                   # Create new habit form
-    ├── [id].tsx                  # Edit habit screen
+    ├── new.tsx                   # Create new goal form
+    ├── [id].tsx                  # Edit goal screen
     └── detail/
-        └── [id].tsx              # Habit detail with heatmap
+        └── [id].tsx              # Goal detail with type-specific stats
 
 components/
 ├── ui/                           # Base UI components (React Native Reusables)
 │   ├── button.tsx, text.tsx, input.tsx, label.tsx
 │   ├── textarea.tsx, icon.tsx, skeleton.tsx
 │   ├── switch.tsx, separator.tsx, toast.tsx
-├── habit-card.tsx                # Habit card with completion & actions
-├── habit-heatmap.tsx             # Binary heatmap (single habit)
-├── calendar-heatmap.tsx          # Multi-tone heatmap (all habits)
+├── goal-card.tsx                 # Goal card with type-specific display
+├── habit-card.tsx                # Legacy alias for goal-card
+├── habit-heatmap.tsx             # Binary heatmap (single goal)
+├── calendar-heatmap.tsx          # Multi-tone heatmap (all goals)
 ├── screen-header.tsx             # Reusable screen header
 └── error-boundary.tsx            # App-level error boundary
 
@@ -77,17 +83,19 @@ lib/
 │   ├── schema.ts                 # SQLite table definitions
 │   └── migrations.ts             # Database version migrations
 ├── repositories/                 # Data access layer
-│   ├── habit-repository.ts       # Habit CRUD operations
+│   ├── goal-repository.ts        # Goal CRUD operations
+│   ├── habit-repository.ts       # Legacy alias for goal-repository
 │   ├── log-repository.ts         # Log entry CRUD operations
 │   └── stats-repository.ts       # Aggregation queries for stats/heatmaps
 ├── store/                        # Zustand state stores
-│   ├── habits-store.ts           # Habit state management
+│   ├── goals-store.ts            # Goal state management
+│   ├── habits-store.ts           # Legacy alias for goals-store
 │   └── logs-store.ts             # Log entry state management
 ├── context/
 │   └── toast-context.tsx         # Toast notification context
 ├── utils/
-│   ├── streak-calculator.ts      # Streak calculation logic
-│   ├── completion-calculator.ts  # Completion rate calculations
+│   ├── streak-calculator.ts      # Streak calculation (recurring goals only)
+│   ├── completion-calculator.ts  # Completion rate & finite goal progress
 │   ├── date-helpers.ts           # date-fns wrappers
 │   ├── validators.ts             # Form & data validation
 │   └── haptics.ts                # Haptic feedback utilities
@@ -102,13 +110,14 @@ types/
 
 | Route | Screen | Description |
 |-------|--------|-------------|
-| `/(tabs)` | Tab Navigator | Bottom tabs: Home, Calendar, Statistics |
-| `/(tabs)/index` | Dashboard | Today's habits with quick logging |
-| `/(tabs)/calendar` | Calendar | Multi-habit heatmap with month navigation |
-| `/(tabs)/statistics` | Statistics | Overall progress and insights |
-| `/habit/new` | Create Habit | New habit form |
-| `/habit/[id]` | Edit Habit | Edit existing habit |
-| `/habit/detail/[id]` | Habit Detail | Individual habit stats and heatmap |
+| `/(tabs)` | Tab Navigator | Bottom tabs: Home, Calendar, Logs |
+| `/(tabs)/index` | Dashboard | Today's goals with quick logging |
+| `/(tabs)/calendar` | Calendar | Multi-goal heatmap with month navigation |
+| `/(tabs)/logs` | Activity Log | Recent completions across all goals |
+| `/statistics` | Statistics | Overall progress and insights |
+| `/habit/new` | Create Goal | New goal form with type selector |
+| `/habit/[id]` | Edit Goal | Edit existing goal |
+| `/habit/detail/[id]` | Goal Detail | Type-specific stats and heatmap |
 
 ### Layered Architecture
 
@@ -134,16 +143,17 @@ types/
 ```typescript
 // types/models.ts
 
-interface Habit {
+interface Goal {
   id: string;
   name: string;
   description?: string;
   category?: string;
-  timeRange: 'daily' | 'weekly' | 'monthly' | 'custom';
+  goalType: 'recurring' | 'finite';  // Determines tracking behavior
+  timeRange: 'daily' | 'weekly' | 'monthly' | 'custom';  // For recurring goals
   customTimeRange?: { value: number; unit: 'days' | 'weeks' | 'months' };
-  targetFrequency: number;
-  startDate: string;      // ISO 8601
-  endDate?: string;
+  targetCount: number;      // X times per period (recurring) or total (finite)
+  startDate: string;        // ISO 8601
+  endDate?: string;         // Required for finite goals, optional for recurring
   createdAt: string;
   updatedAt: string;
   isArchived: boolean;
@@ -151,39 +161,63 @@ interface Habit {
 
 interface LogEntry {
   id: string;
-  habitId: string;
-  completedAt: string;    // When habit was completed
+  goalId: string;
+  completedAt: string;    // When goal action was completed
   loggedAt: string;       // When user logged it
   notes?: string;
 }
 
 interface StreakInfo {
-  currentStreak: number;
+  currentStreak: number;    // Consecutive periods with completion
   longestStreak: number;
   lastCompletedDate?: string;
 }
 
-interface CompletionStats {
-  totalCompletions: number;
-  completionRate: number;
-  periodStart: string;
-  periodEnd: string;
+interface FiniteGoalProgress {
+  completed: number;        // Completions so far
+  target: number;           // Target count
+  percentage: number;       // 0-100
+  daysRemaining: number;
+  daysElapsed: number;
+  totalDays: number;
+  isComplete: boolean;
+  isOverdue: boolean;
 }
 
 interface HeatmapData {
   date: string;
   completionCount: number;
-  totalHabits: number;
+  totalGoals: number;
   intensity: 0 | 1 | 2 | 3 | 4;  // For multi-tone heatmap
   isCompleted?: boolean;         // For binary heatmap
 }
 ```
 
+## Goal Types Explained
+
+### Recurring Goals
+- **Use case**: "Go to gym 3x per week", "Meditate daily"
+- **Tracking**: Resets each period (day/week/month)
+- **Metrics**: Current streak, longest streak, period completion
+- **UI**: Segmented progress ring, streak badge
+
+### Finite Goals
+- **Use case**: "Read 10 books this year", "Complete 50 coding sessions"
+- **Tracking**: Progress toward fixed target with deadline
+- **Metrics**: Progress percentage, days remaining, completion count
+- **UI**: Progress bar, percentage display, deadline indicator
+
 ## Database Schema
 
 **Tables:**
-- `habits` - Habit definitions with indexes on `is_archived` and `start_date`
-- `log_entries` - Completion logs with foreign key to habits (CASCADE delete), indexes on `habit_id`, `completed_at`
+- `habits` (named for backwards compatibility) - Goal definitions
+  - Indexes: `is_archived`, `start_date`, `goal_type`
+  - Columns: `goal_type` (recurring/finite), `target_count`
+- `log_entries` - Completion logs
+  - Foreign key to goals (CASCADE delete)
+  - Indexes: `goal_id`, `completed_at`
+
+**Migration**: Database v2 adds `goal_type` column with default `'recurring'` for existing data.
 
 ## State Management
 
@@ -191,17 +225,17 @@ interface HeatmapData {
 
 | Store | State | Key Actions |
 |-------|-------|-------------|
-| `habitsStore` | habits[], isLoading, error | loadHabits, addHabit, editHabit, removeHabit, toggleArchive |
-| `logsStore` | logs[], isLoading, error | loadLogsByHabitId, addLog, removeLog |
+| `goalsStore` | goals[], isLoading, error | loadGoals, loadActiveGoals, loadGoalsByType, addGoal, editGoal, removeGoal, toggleArchive |
+| `logsStore` | logs[], isLoading, error | loadLogsByGoalId, addLog, removeLog |
 
 ## Key Utilities
 
 | File | Purpose |
 |------|---------|
-| `streak-calculator.ts` | Calculate current/longest streaks for all time ranges |
-| `completion-calculator.ts` | Calculate completion rates and stats |
+| `streak-calculator.ts` | Calculate streaks (recurring goals only, returns 0 for finite) |
+| `completion-calculator.ts` | Calculate completion rates and finite goal progress |
 | `date-helpers.ts` | Date manipulation wrappers (date-fns) |
-| `validators.ts` | Form validation, prevents future date logging |
+| `validators.ts` | Form validation (validates goalType, endDate for finite goals) |
 | `haptics.ts` | Haptic feedback (light, medium, heavy, success, error) |
 
 ## Styling System
@@ -223,27 +257,32 @@ Components configured via `components.json` (Style: "new-york", Base: "neutral")
 ## Implemented Features
 
 **Dashboard:**
-- Today's active habits with completion progress
+- Today's active goals separated by type (recurring/finite)
+- Type-specific progress display (ring for recurring, bar for finite)
 - One-tap logging with haptic feedback
-- Habit cards showing streak, category, target frequency
+- Goal cards showing type, streak/progress, category
 - Pull-to-refresh
+
+**Goal Creation/Editing:**
+- Goal type selector (recurring vs finite)
+- Recurring: Time range and target per period
+- Finite: Target count and deadline picker
+- Validation based on goal type
+
+**Goal Detail:**
+- **Recurring**: Current/longest streak, 30-day completion rate
+- **Finite**: Progress percentage, completion count, days remaining, deadline
+- Heatmap visualization (both types)
 
 **Calendar View:**
 - Multi-tone GitHub-style heatmap (5 intensity levels)
 - Month navigation (1-12 months range)
 - Summary stats (active days, avg completion rate)
 
-**Habit Detail:**
-- Binary heatmap showing completion per day
-- Current streak and longest streak
-- 30-day completion rate
-- Total completions count
-- Edit/delete actions
-
 **Statistics:**
-- Overall habits count (total, active)
+- Goals count by type (total, active, recurring, finite)
 - Completions breakdown (today, week, month, all-time)
-- Top performers (best streak, most completed)
+- Highlights: Best streak, closest to completion, most completed
 
 **Polish:**
 - Loading skeletons
@@ -271,7 +310,7 @@ Runs on iOS, Android, and Web. Fully supports Expo Go for development.
 
 - Cloud sync/backup
 - Notifications/reminders
-- Habit templates
+- Goal templates
 - Advanced analytics
 - Social features
 - Data export

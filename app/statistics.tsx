@@ -1,32 +1,38 @@
 // Statistics screen - Overall progress and insights
 
 import { View, ScrollView, RefreshControl } from 'react-native';
-import { ScreenHeader } from '@/components/screen-header';
 import { Text } from '@/components/ui/text';
+import { Button } from '@/components/ui/button';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
-import { useHabitsStore } from '@/lib/store/habits-store';
+import { useGoalsStore } from '@/lib/store/goals-store';
 import { getOverallStats } from '@/lib/repositories/stats-repository';
-import { getLogEntriesByHabitId } from '@/lib/repositories/log-repository';
+import { getLogEntriesByGoalId } from '@/lib/repositories/log-repository';
 import { calculateStreak } from '@/lib/utils/streak-calculator';
-import { TrendingUp, Target, Flame, Check, Calendar, Award } from 'lucide-react-native';
+import { calculateFiniteGoalProgress } from '@/lib/utils/completion-calculator';
+import { TrendingUp, Target, Flame, Check, Calendar, Award, ArrowLeft, Repeat, CheckCircle } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useRouter } from 'expo-router';
 
 export default function StatisticsScreen() {
-  const { habits, loadActiveHabits } = useHabitsStore();
+  const router = useRouter();
+  const { goals, loadActiveGoals } = useGoalsStore();
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const [totalHabits, setTotalHabits] = useState(0);
-  const [activeHabits, setActiveHabits] = useState(0);
+  const [totalGoals, setTotalGoals] = useState(0);
+  const [activeGoals, setActiveGoals] = useState(0);
+  const [recurringCount, setRecurringCount] = useState(0);
+  const [finiteCount, setFiniteCount] = useState(0);
   const [completionsToday, setCompletionsToday] = useState(0);
   const [completionsThisWeek, setCompletionsThisWeek] = useState(0);
   const [completionsThisMonth, setCompletionsThisMonth] = useState(0);
   const [completionsAllTime, setCompletionsAllTime] = useState(0);
 
-  const [bestStreak, setBestStreak] = useState({ habitName: '', streak: 0 });
-  const [mostCompleted, setMostCompleted] = useState({ habitName: '', count: 0 });
+  const [bestStreak, setBestStreak] = useState({ goalName: '', streak: 0 });
+  const [mostCompleted, setMostCompleted] = useState({ goalName: '', count: 0 });
+  const [closestToCompletion, setClosestToCompletion] = useState({ goalName: '', percentage: 0 });
 
   useEffect(() => {
     loadStats();
@@ -35,38 +41,52 @@ export default function StatisticsScreen() {
   const loadStats = async () => {
     setIsLoading(true);
     try {
-      await loadActiveHabits();
+      await loadActiveGoals();
 
       const overallStats = await getOverallStats();
-      setTotalHabits(overallStats.totalHabits);
-      setActiveHabits(overallStats.activeHabits);
+      setTotalGoals(overallStats.totalGoals);
+      setActiveGoals(overallStats.activeGoals);
+      setRecurringCount(overallStats.recurringGoals);
+      setFiniteCount(overallStats.finiteGoals);
       setCompletionsToday(overallStats.totalCompletionsToday);
       setCompletionsThisWeek(overallStats.totalCompletionsThisWeek);
       setCompletionsThisMonth(overallStats.totalCompletionsThisMonth);
       setCompletionsAllTime(overallStats.totalCompletionsAllTime);
 
       let maxStreak = 0;
-      let maxStreakHabit = '';
+      let maxStreakGoal = '';
       let maxCompletions = 0;
-      let maxCompletionsHabit = '';
+      let maxCompletionsGoal = '';
+      let highestIncompleteProgress = 0;
+      let closestGoal = '';
 
-      for (const habit of habits) {
-        const logs = await getLogEntriesByHabitId(habit.id);
-        const streakInfo = calculateStreak(habit, logs);
+      for (const goal of goals) {
+        const logs = await getLogEntriesByGoalId(goal.id);
 
-        if (streakInfo.longestStreak > maxStreak) {
-          maxStreak = streakInfo.longestStreak;
-          maxStreakHabit = habit.name;
+        if (goal.goalType === 'recurring') {
+          const streakInfo = calculateStreak(goal, logs);
+          if (streakInfo.longestStreak > maxStreak) {
+            maxStreak = streakInfo.longestStreak;
+            maxStreakGoal = goal.name;
+          }
+        } else {
+          // Finite goal - check if it's close to completion
+          const progress = calculateFiniteGoalProgress(goal, logs);
+          if (!progress.isComplete && progress.percentage > highestIncompleteProgress) {
+            highestIncompleteProgress = progress.percentage;
+            closestGoal = goal.name;
+          }
         }
 
         if (logs.length > maxCompletions) {
           maxCompletions = logs.length;
-          maxCompletionsHabit = habit.name;
+          maxCompletionsGoal = goal.name;
         }
       }
 
-      setBestStreak({ habitName: maxStreakHabit, streak: maxStreak });
-      setMostCompleted({ habitName: maxCompletionsHabit, count: maxCompletions });
+      setBestStreak({ goalName: maxStreakGoal, streak: maxStreak });
+      setMostCompleted({ goalName: maxCompletionsGoal, count: maxCompletions });
+      setClosestToCompletion({ goalName: closestGoal, percentage: highestIncompleteProgress });
     } catch (error) {
       console.error('Error loading statistics:', error);
     } finally {
@@ -82,7 +102,15 @@ export default function StatisticsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-      <ScreenHeader title="Statistics" subtitle="Your progress overview" />
+      {/* Header with back button */}
+      <View className="flex-row items-center justify-between px-5 py-4 border-b border-border">
+        <Button size="icon" variant="ghost" onPress={() => router.back()}>
+          <Icon as={ArrowLeft} className="size-5 text-foreground" />
+        </Button>
+        <Text variant="h3" className="text-foreground">Statistics</Text>
+        <View className="w-10" />
+      </View>
+
       <ScrollView
         className="flex-1"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -109,19 +137,31 @@ export default function StatisticsScreen() {
             </View>
           ) : (
             <>
-              {/* Habits Overview Grid */}
+              {/* Goals Overview Grid */}
               <View>
                 <Text variant="h4" className="text-foreground mb-4">Overview</Text>
-                <View className="flex-row gap-3">
+                <View className="flex-row gap-3 mb-3">
                   <View className="flex-1 bg-card border border-border rounded-lg p-5 items-center">
                     <Icon as={Target} className="size-6 text-foreground mb-3" />
-                    <Text variant="mono-xl" className="text-foreground">{totalHabits}</Text>
+                    <Text variant="mono-xl" className="text-foreground">{totalGoals}</Text>
                     <Text variant="caption" className="text-muted-foreground mt-1">Total</Text>
                   </View>
                   <View className="flex-1 bg-card border border-border rounded-lg p-5 items-center">
                     <Icon as={Check} className="size-6 text-success mb-3" />
-                    <Text variant="mono-xl" className="text-foreground">{activeHabits}</Text>
+                    <Text variant="mono-xl" className="text-foreground">{activeGoals}</Text>
                     <Text variant="caption" className="text-muted-foreground mt-1">Active</Text>
+                  </View>
+                </View>
+                <View className="flex-row gap-3">
+                  <View className="flex-1 bg-card border border-border rounded-lg p-4 items-center">
+                    <Icon as={Repeat} className="size-5 text-muted-foreground mb-2" />
+                    <Text variant="mono-lg" className="text-foreground">{recurringCount}</Text>
+                    <Text variant="caption" className="text-muted-foreground mt-1">Recurring</Text>
+                  </View>
+                  <View className="flex-1 bg-card border border-primary/30 bg-primary/5 rounded-lg p-4 items-center">
+                    <Icon as={Target} className="size-5 text-primary mb-2" />
+                    <Text variant="mono-lg" className="text-foreground">{finiteCount}</Text>
+                    <Text variant="caption" className="text-muted-foreground mt-1">Finite</Text>
                   </View>
                 </View>
               </View>
@@ -169,9 +209,9 @@ export default function StatisticsScreen() {
               </View>
 
               {/* Top Performers */}
-              {habits.length > 0 && (bestStreak.streak > 0 || mostCompleted.count > 0) && (
+              {goals.length > 0 && (bestStreak.streak > 0 || mostCompleted.count > 0 || closestToCompletion.percentage > 0) && (
                 <View>
-                  <Text variant="h4" className="text-foreground mb-4">Top Performers</Text>
+                  <Text variant="h4" className="text-foreground mb-4">Highlights</Text>
                   <View className="gap-3">
                     {bestStreak.streak > 0 && (
                       <View className="bg-card border border-border rounded-lg p-5">
@@ -182,10 +222,27 @@ export default function StatisticsScreen() {
                           </Text>
                         </View>
                         <Text variant="h3" className="text-foreground" numberOfLines={1}>
-                          {bestStreak.habitName}
+                          {bestStreak.goalName}
                         </Text>
                         <Text variant="mono" className="text-muted-foreground mt-1">
-                          {bestStreak.streak} {bestStreak.streak === 1 ? 'day' : 'days'}
+                          {bestStreak.streak} {bestStreak.streak === 1 ? 'period' : 'periods'}
+                        </Text>
+                      </View>
+                    )}
+
+                    {closestToCompletion.percentage > 0 && (
+                      <View className="bg-card border border-primary/30 bg-primary/5 rounded-lg p-5">
+                        <View className="flex-row items-center gap-2 mb-3">
+                          <Icon as={CheckCircle} className="size-5 text-primary" />
+                          <Text variant="caption" className="text-muted-foreground uppercase tracking-wide">
+                            Almost There
+                          </Text>
+                        </View>
+                        <Text variant="h3" className="text-foreground" numberOfLines={1}>
+                          {closestToCompletion.goalName}
+                        </Text>
+                        <Text variant="mono" className="text-primary mt-1">
+                          {closestToCompletion.percentage}% complete
                         </Text>
                       </View>
                     )}
@@ -199,7 +256,7 @@ export default function StatisticsScreen() {
                           </Text>
                         </View>
                         <Text variant="h3" className="text-foreground" numberOfLines={1}>
-                          {mostCompleted.habitName}
+                          {mostCompleted.goalName}
                         </Text>
                         <Text variant="mono" className="text-muted-foreground mt-1">
                           {mostCompleted.count} {mostCompleted.count === 1 ? 'completion' : 'completions'}
@@ -211,13 +268,13 @@ export default function StatisticsScreen() {
               )}
 
               {/* Empty state */}
-              {habits.length === 0 && (
+              {goals.length === 0 && (
                 <View className="items-center justify-center py-16">
                   <Text variant="h2" className="text-foreground mb-3">
                     Nothing to show yet
                   </Text>
                   <Text variant="body" className="text-muted-foreground text-center max-w-[280px]">
-                    Complete habits to see your statistics
+                    Complete goals to see your statistics
                   </Text>
                 </View>
               )}

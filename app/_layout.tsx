@@ -88,6 +88,8 @@ export default function RootLayout() {
           >
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="statistics" options={{ headerShown: false }} />
+            <Stack.Screen name="log/new" options={{ headerShown: false }} />
           </Stack>
           <PortalHost />
         </ToastProvider>

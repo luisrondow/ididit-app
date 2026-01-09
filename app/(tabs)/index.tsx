@@ -1,33 +1,37 @@
-// Dashboard screen - Today's habits and quick stats
+// Dashboard screen - Today's goals and quick stats
 
 import { View, ScrollView, Alert, RefreshControl } from 'react-native';
 import { ScreenHeader } from '@/components/screen-header';
 import { Text } from '@/components/ui/text';
-import { Plus } from 'lucide-react-native';
+import { Plus, BarChart3 } from 'lucide-react-native';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useHabitsStore } from '@/lib/store/habits-store';
-import { useLogsStore } from '@/lib/store/logs-store';
+import { useGoalsStore } from '@/lib/store/goals-store';
 import { useEffect, useState, useCallback } from 'react';
-import { HabitCard } from '@/components/habit-card';
-import { useRouter } from 'expo-router';
-import type { LogEntry } from '@/types/models';
-import { getCompletionCountForDate, getLogEntriesByHabitId } from '@/lib/repositories/log-repository';
+import { GoalCard } from '@/components/goal-card';
+import { useRouter, useFocusEffect } from 'expo-router';
+import {
+  getCompletionCountForDate,
+  getLogEntriesByGoalId,
+} from '@/lib/repositories/log-repository';
 import { calculateStreak } from '@/lib/utils/streak-calculator';
+import { calculateFiniteGoalProgress, getCompletionCountForCurrentPeriod } from '@/lib/utils/completion-calculator';
+import type { FiniteGoalProgress } from '@/types/models';
 import { useToast } from '@/lib/context/toast-context';
 import { SkeletonCard } from '@/components/ui/skeleton';
 import { haptics } from '@/lib/utils/haptics';
 import { FadeInView } from '@/components/ui/animated-view';
+import { FloatingActionButton } from '@/components/floating-action-button';
 
 export default function DashboardScreen() {
   const router = useRouter();
   const toast = useToast();
-  const { habits, loadActiveHabits, removeHabit, toggleArchive, isLoading } = useHabitsStore();
-  const { addLog } = useLogsStore();
+  const { goals, loadActiveGoals, removeGoal, toggleArchive, isLoading } = useGoalsStore();
   const [refreshing, setRefreshing] = useState(false);
   const [completionCounts, setCompletionCounts] = useState<Record<string, number>>({});
   const [streaks, setStreaks] = useState<Record<string, number>>({});
+  const [finiteProgress, setFiniteProgress] = useState<Record<string, FiniteGoalProgress>>({});
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -35,180 +39,230 @@ export default function DashboardScreen() {
     day: 'numeric',
   });
 
-  useEffect(() => {
-    loadHabits();
-  }, []);
+  // Reload data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [])
+  );
+
+  const loadData = useCallback(async () => {
+    await loadActiveGoals();
+  }, [loadActiveGoals]);
 
   useEffect(() => {
-    if (habits.length > 0) {
-      loadCompletionCounts();
-      loadStreaks();
+    if (goals.length > 0) {
+      loadGoalStats();
     }
-  }, [habits]);
+  }, [goals]);
 
-  const loadHabits = useCallback(async () => {
-    await loadActiveHabits();
-  }, [loadActiveHabits]);
-
-  const loadCompletionCounts = useCallback(async () => {
-    const today = new Date().toISOString();
+  const loadGoalStats = useCallback(async () => {
     const counts: Record<string, number> = {};
+    const streakData: Record<string, number> = {};
+    const progressData: Record<string, FiniteGoalProgress> = {};
 
-    for (const habit of habits) {
-      const count = await getCompletionCountForDate(habit.id, today);
-      counts[habit.id] = count;
+    for (const goal of goals) {
+      const logs = await getLogEntriesByGoalId(goal.id);
+
+      if (goal.goalType === 'recurring') {
+        // For recurring goals: get period completion count and streak
+        const count = getCompletionCountForCurrentPeriod(goal, logs);
+        counts[goal.id] = count;
+
+        const streakInfo = calculateStreak(goal, logs);
+        streakData[goal.id] = streakInfo.currentStreak;
+      } else {
+        // For finite goals: calculate overall progress
+        const progress = calculateFiniteGoalProgress(goal, logs);
+        progressData[goal.id] = progress;
+        counts[goal.id] = progress.completed;
+      }
     }
 
     setCompletionCounts(counts);
-  }, [habits]);
-
-  const loadStreaks = useCallback(async () => {
-    const streakData: Record<string, number> = {};
-
-    for (const habit of habits) {
-      const logs = await getLogEntriesByHabitId(habit.id);
-      const streakInfo = calculateStreak(habit, logs);
-      streakData[habit.id] = streakInfo.currentStreak;
-    }
-
     setStreaks(streakData);
-  }, [habits]);
+    setFiniteProgress(progressData);
+  }, [goals]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadHabits();
+    await loadData();
     setRefreshing(false);
-  }, [loadHabits]);
+  }, [loadData]);
 
-  const handleLog = useCallback(async (habitId: string) => {
-    haptics.medium();
-    const now = new Date().toISOString();
-    const newLog: LogEntry = {
-      id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      habitId,
-      completedAt: now,
-      loggedAt: now,
-    };
+  const handleDelete = useCallback(
+    (id: string) => {
+      haptics.warning();
+      Alert.alert(
+        'Delete Goal',
+        'Are you sure you want to delete this goal? This will also delete all associated log entries.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await removeGoal(id);
+                haptics.success();
+                toast.success('Goal deleted');
+              } catch (error) {
+                haptics.error();
+                toast.error('Failed to delete goal');
+                console.error('Error deleting goal:', error);
+              }
+            },
+          },
+        ]
+      );
+    },
+    [removeGoal, toast]
+  );
 
-    try {
-      await addLog(newLog);
-      await loadCompletionCounts();
-      await loadStreaks();
-      haptics.success();
-      toast.success('Habit logged!');
-    } catch (error) {
-      haptics.error();
-      toast.error('Failed to log completion');
-      console.error('Error logging completion:', error);
-    }
-  }, [addLog, loadCompletionCounts, loadStreaks, toast]);
+  const handleArchive = useCallback(
+    async (id: string, isArchived: boolean) => {
+      haptics.light();
+      try {
+        await toggleArchive(id, isArchived);
+        haptics.success();
+        toast.success(isArchived ? 'Goal archived' : 'Goal unarchived');
+      } catch (error) {
+        haptics.error();
+        toast.error('Failed to archive goal');
+        console.error('Error archiving goal:', error);
+      }
+    },
+    [toggleArchive, toast]
+  );
 
-  const handleDelete = useCallback((id: string) => {
-    haptics.warning();
-    Alert.alert('Delete Habit', 'Are you sure you want to delete this habit? This will also delete all associated log entries.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await removeHabit(id);
-            haptics.success();
-            toast.success('Habit deleted');
-          } catch (error) {
-            haptics.error();
-            toast.error('Failed to delete habit');
-            console.error('Error deleting habit:', error);
-          }
-        },
-      },
-    ]);
-  }, [removeHabit, toast]);
-
-  const handleArchive = useCallback(async (id: string, isArchived: boolean) => {
-    haptics.light();
-    try {
-      await toggleArchive(id, isArchived);
-      haptics.success();
-      toast.success(isArchived ? 'Habit archived' : 'Habit unarchived');
-    } catch (error) {
-      haptics.error();
-      toast.error('Failed to archive habit');
-      console.error('Error archiving habit:', error);
-    }
-  }, [toggleArchive, toast]);
-
-  const handleCreateHabit = useCallback(() => {
+  const handleCreateGoal = useCallback(() => {
     router.push('/habit/new');
   }, [router]);
+
+  const handleOpenStatistics = useCallback(() => {
+    router.push('/statistics');
+  }, [router]);
+
+  // Separate goals by type for display
+  const recurringGoals = goals.filter(g => g.goalType === 'recurring');
+  const finiteGoals = goals.filter(g => g.goalType === 'finite');
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       <ScreenHeader
-        title="Dashboard"
+        title="Did you do it?"
         subtitle={today}
         rightAction={
-          <Button size="icon" variant="ghost" onPress={handleCreateHabit}>
-            <Icon as={Plus} className="size-5 text-foreground" />
-          </Button>
+          <View className="flex-row items-center gap-1">
+            <Button size="icon" variant="ghost" onPress={handleOpenStatistics}>
+              <Icon as={BarChart3} className="size-5 text-foreground" />
+            </Button>
+            <Button size="icon" variant="ghost" onPress={handleCreateGoal}>
+              <Icon as={Plus} className="size-5 text-foreground" />
+            </Button>
+          </View>
         }
       />
       <ScrollView
         className="flex-1"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
         <View className="p-5">
-          {isLoading && habits.length === 0 ? (
+          {isLoading && goals.length === 0 ? (
             <View className="gap-3">
               <SkeletonCard />
               <SkeletonCard />
               <SkeletonCard />
             </View>
-          ) : habits.length === 0 ? (
+          ) : goals.length === 0 ? (
             // Empty state
             <FadeInView delay={0}>
               <View className="items-center justify-center py-20">
-                <Text variant="h2" className="text-foreground mb-3">
-                  No habits yet
+                <Text variant="h2" className="mb-3 text-foreground">
+                  No goals yet
                 </Text>
-                <Text variant="body" className="text-muted-foreground text-center mb-8 max-w-[280px]">
-                  Create your first habit to start tracking your progress
+                <Text
+                  variant="body"
+                  className="mb-8 max-w-[280px] text-center text-muted-foreground">
+                  Create your first goal to start tracking your progress
                 </Text>
-                <Button onPress={handleCreateHabit}>
-                  <Icon as={Plus} className="size-4 mr-2 text-primary-foreground" />
-                  <Text className="text-primary-foreground font-sans-medium">Create Habit</Text>
+                <Button onPress={handleCreateGoal}>
+                  <Icon as={Plus} className="mr-2 size-4 text-primary-foreground" />
+                  <Text className="font-sans-medium text-primary-foreground">Create Goal</Text>
                 </Button>
               </View>
             </FadeInView>
           ) : (
             <View>
               <FadeInView delay={0}>
-                <Text variant="caption" className="text-muted-foreground mb-4 font-mono">
-                  {habits.length} active {habits.length === 1 ? 'habit' : 'habits'}
+                <Text variant="caption" className="mb-4 font-mono text-muted-foreground">
+                  {goals.length} active {goals.length === 1 ? 'goal' : 'goals'}
                 </Text>
               </FadeInView>
-              {habits.map((habit, index) => (
-                <FadeInView key={habit.id} delay={50 * (index + 1)}>
-                  <HabitCard
-                    habit={habit}
-                    completionCount={completionCounts[habit.id] ?? 0}
-                    currentStreak={streaks[habit.id] ?? 0}
-                    onDelete={handleDelete}
-                    onArchive={handleArchive}
-                    onLog={handleLog}
-                    onPress={() => {
-                      router.push({
-                        pathname: '/habit/detail/[id]',
-                        params: { id: habit.id },
-                      });
-                    }}
-                  />
-                </FadeInView>
-              ))}
+
+              {/* Recurring Goals */}
+              {recurringGoals.length > 0 && (
+                <>
+                  {finiteGoals.length > 0 && (
+                    <FadeInView delay={25}>
+                      <Text variant="caption" className="mb-2 font-sans-medium text-muted-foreground uppercase tracking-wide">
+                        Recurring
+                      </Text>
+                    </FadeInView>
+                  )}
+                  {recurringGoals.map((goal, index) => (
+                    <FadeInView key={goal.id} delay={50 * (index + 1)}>
+                      <GoalCard
+                        goal={goal}
+                        completionCount={completionCounts[goal.id] ?? 0}
+                        currentStreak={streaks[goal.id] ?? 0}
+                        onDelete={handleDelete}
+                        onArchive={handleArchive}
+                        onPress={() => {
+                          router.push({
+                            pathname: '/habit/detail/[id]',
+                            params: { id: goal.id },
+                          });
+                        }}
+                      />
+                    </FadeInView>
+                  ))}
+                </>
+              )}
+
+              {/* Finite Goals */}
+              {finiteGoals.length > 0 && (
+                <>
+                  {recurringGoals.length > 0 && (
+                    <FadeInView delay={50 * (recurringGoals.length + 1)}>
+                      <Text variant="caption" className="mb-2 mt-4 font-sans-medium text-muted-foreground uppercase tracking-wide">
+                        Finite Goals
+                      </Text>
+                    </FadeInView>
+                  )}
+                  {finiteGoals.map((goal, index) => (
+                    <FadeInView key={goal.id} delay={50 * (recurringGoals.length + index + 2)}>
+                      <GoalCard
+                        goal={goal}
+                        finiteProgress={finiteProgress[goal.id]}
+                        onDelete={handleDelete}
+                        onArchive={handleArchive}
+                        onPress={() => {
+                          router.push({
+                            pathname: '/habit/detail/[id]',
+                            params: { id: goal.id },
+                          });
+                        }}
+                      />
+                    </FadeInView>
+                  ))}
+                </>
+              )}
             </View>
           )}
         </View>
       </ScrollView>
+
+      <FloatingActionButton />
     </SafeAreaView>
   );
 }

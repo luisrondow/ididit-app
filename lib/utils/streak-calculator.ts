@@ -1,10 +1,8 @@
-// Streak calculation logic
+// Streak calculation logic (for recurring goals only)
 
-import type { Habit, LogEntry, StreakInfo } from '@/types/models';
+import type { Goal, LogEntry, StreakInfo } from '@/types/models';
 import {
   startOfDay,
-  endOfDay,
-  isSameDate,
   getDaysDifference,
   subtractDaysFromDate,
   subtractWeeksFromDate,
@@ -13,13 +11,28 @@ import {
 } from './date-helpers';
 
 /**
- * Calculate streak information for a habit
+ * Calculate streak information for a goal
+ * Note: Streaks are only meaningful for recurring goals.
+ * For finite goals, this will return zeros.
  */
 export function calculateStreak(
-  habit: Habit,
+  goal: Goal,
   logEntries: LogEntry[],
   referenceDate?: Date
 ): StreakInfo {
+  // Streaks don't apply to finite goals - return zeros
+  if (goal.goalType === 'finite') {
+    return {
+      currentStreak: 0,
+      longestStreak: 0,
+      lastCompletedDate: logEntries.length > 0 
+        ? logEntries.sort((a, b) => 
+            new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
+          )[0].completedAt 
+        : undefined,
+    };
+  }
+
   const now = referenceDate ?? new Date();
 
   // Sort log entries by completion date (newest first)
@@ -38,10 +51,10 @@ export function calculateStreak(
   const completionDates = getUniqueCompletionDates(sortedLogs);
 
   // Calculate current streak
-  const currentStreak = calculateCurrentStreak(habit, completionDates, now);
+  const currentStreak = calculateCurrentStreak(goal, completionDates, now);
 
   // Calculate longest streak
-  const longestStreak = calculateLongestStreak(habit, completionDates);
+  const longestStreak = calculateLongestStreak(goal, completionDates);
 
   // Get last completed date
   const lastCompletedDate = completionDates.length > 0 ? completionDates[0] : undefined;
@@ -69,10 +82,10 @@ function getUniqueCompletionDates(logEntries: LogEntry[]): string[] {
 }
 
 /**
- * Calculate current streak based on habit's time range
+ * Calculate current streak based on goal's time range
  */
 function calculateCurrentStreak(
-  habit: Habit,
+  goal: Goal,
   completionDates: string[],
   referenceDate: Date
 ): number {
@@ -81,12 +94,11 @@ function calculateCurrentStreak(
   }
 
   const today = startOfDay(referenceDate);
-  const todayStr = getDateString(today);
 
-  // Check if habit is active today
-  const habitStartDate = new Date(habit.startDate);
-  if (habitStartDate > today) {
-    return 0; // Habit hasn't started yet
+  // Check if goal is active today
+  const goalStartDate = new Date(goal.startDate);
+  if (goalStartDate > today) {
+    return 0; // Goal hasn't started yet
   }
 
   let streak = 0;
@@ -94,7 +106,7 @@ function calculateCurrentStreak(
 
   // Walk backwards through time periods
   while (true) {
-    const periodStart = getPeriodStart(habit, currentPeriodStart);
+    const periodStart = getPeriodStart(goal, currentPeriodStart);
     const periodStartStr = getDateString(periodStart);
 
     // Check if any completion falls within this period
@@ -109,10 +121,10 @@ function calculateCurrentStreak(
     streak++;
 
     // Move to previous period
-    currentPeriodStart = subtractOnePeriod(habit, periodStart);
+    currentPeriodStart = subtractOnePeriod(goal, periodStart);
 
-    // Don't go before habit start date
-    if (currentPeriodStart < habitStartDate) {
+    // Don't go before goal start date
+    if (currentPeriodStart < goalStartDate) {
       break;
     }
   }
@@ -123,7 +135,7 @@ function calculateCurrentStreak(
 /**
  * Calculate longest streak
  */
-function calculateLongestStreak(habit: Habit, completionDates: string[]): number {
+function calculateLongestStreak(goal: Goal, completionDates: string[]): number {
   if (completionDates.length === 0) {
     return 0;
   }
@@ -137,7 +149,7 @@ function calculateLongestStreak(habit: Habit, completionDates: string[]): number
 
   for (const dateStr of completionDates) {
     const date = new Date(dateStr);
-    const periodStart = getPeriodStart(habit, date);
+    const periodStart = getPeriodStart(goal, date);
     const periodKey = getDateString(periodStart);
 
     if (!periodGroups.has(periodKey)) {
@@ -160,7 +172,7 @@ function calculateLongestStreak(habit: Habit, completionDates: string[]): number
       lastPeriodStart = periodStart;
     } else {
       // Check if this period is consecutive with the last one
-      const expectedPrevPeriod = subtractOnePeriod(habit, lastPeriodStart);
+      const expectedPrevPeriod = subtractOnePeriod(goal, lastPeriodStart);
       const expectedPrevPeriodStr = getDateString(expectedPrevPeriod);
 
       if (periodKey === expectedPrevPeriodStr) {
@@ -183,12 +195,12 @@ function calculateLongestStreak(habit: Habit, completionDates: string[]): number
 }
 
 /**
- * Get the start of the period for a given date based on habit's time range
+ * Get the start of the period for a given date based on goal's time range
  */
-function getPeriodStart(habit: Habit, date: Date): Date {
+function getPeriodStart(goal: Goal, date: Date): Date {
   const dateObj = startOfDay(date);
 
-  switch (habit.timeRange) {
+  switch (goal.timeRange) {
     case 'daily':
       return dateObj;
 
@@ -204,25 +216,25 @@ function getPeriodStart(habit: Habit, date: Date): Date {
       return startOfDay(monthStart);
 
     case 'custom':
-      if (!habit.customTimeRange) {
+      if (!goal.customTimeRange) {
         return dateObj;
       }
 
-      // For custom ranges, we'll use the habit's start date as anchor
-      const habitStart = startOfDay(new Date(habit.startDate));
-      const daysSinceStart = getDaysDifference(dateObj, habitStart);
+      // For custom ranges, we'll use the goal's start date as anchor
+      const goalStart = startOfDay(new Date(goal.startDate));
+      const daysSinceStart = getDaysDifference(dateObj, goalStart);
 
       let periodLengthInDays = 1;
-      if (habit.customTimeRange.unit === 'days') {
-        periodLengthInDays = habit.customTimeRange.value;
-      } else if (habit.customTimeRange.unit === 'weeks') {
-        periodLengthInDays = habit.customTimeRange.value * 7;
-      } else if (habit.customTimeRange.unit === 'months') {
-        periodLengthInDays = habit.customTimeRange.value * 30; // Approximate
+      if (goal.customTimeRange.unit === 'days') {
+        periodLengthInDays = goal.customTimeRange.value;
+      } else if (goal.customTimeRange.unit === 'weeks') {
+        periodLengthInDays = goal.customTimeRange.value * 7;
+      } else if (goal.customTimeRange.unit === 'months') {
+        periodLengthInDays = goal.customTimeRange.value * 30; // Approximate
       }
 
       const periodNumber = Math.floor(daysSinceStart / periodLengthInDays);
-      return new Date(habitStart.getTime() + periodNumber * periodLengthInDays * 24 * 60 * 60 * 1000);
+      return new Date(goalStart.getTime() + periodNumber * periodLengthInDays * 24 * 60 * 60 * 1000);
 
     default:
       return dateObj;
@@ -230,10 +242,10 @@ function getPeriodStart(habit: Habit, date: Date): Date {
 }
 
 /**
- * Subtract one period from a date based on habit's time range
+ * Subtract one period from a date based on goal's time range
  */
-function subtractOnePeriod(habit: Habit, date: Date): Date {
-  switch (habit.timeRange) {
+function subtractOnePeriod(goal: Goal, date: Date): Date {
+  switch (goal.timeRange) {
     case 'daily':
       return subtractDaysFromDate(date, 1);
 
@@ -244,16 +256,16 @@ function subtractOnePeriod(habit: Habit, date: Date): Date {
       return subtractMonthsFromDate(date, 1);
 
     case 'custom':
-      if (!habit.customTimeRange) {
+      if (!goal.customTimeRange) {
         return subtractDaysFromDate(date, 1);
       }
 
-      if (habit.customTimeRange.unit === 'days') {
-        return subtractDaysFromDate(date, habit.customTimeRange.value);
-      } else if (habit.customTimeRange.unit === 'weeks') {
-        return subtractWeeksFromDate(date, habit.customTimeRange.value);
-      } else if (habit.customTimeRange.unit === 'months') {
-        return subtractMonthsFromDate(date, habit.customTimeRange.value);
+      if (goal.customTimeRange.unit === 'days') {
+        return subtractDaysFromDate(date, goal.customTimeRange.value);
+      } else if (goal.customTimeRange.unit === 'weeks') {
+        return subtractWeeksFromDate(date, goal.customTimeRange.value);
+      } else if (goal.customTimeRange.unit === 'months') {
+        return subtractMonthsFromDate(date, goal.customTimeRange.value);
       }
 
       return subtractDaysFromDate(date, 1);

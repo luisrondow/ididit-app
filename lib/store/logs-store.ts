@@ -5,40 +5,45 @@ import type { LogEntry } from '@/types/models';
 import {
   createLogEntry,
   getLogEntryById,
-  getLogEntriesByHabitId,
+  getLogEntriesByGoalId,
   getLogEntriesByDateRange,
   getLogEntriesByDate,
+  getAllLogEntries,
   updateLogEntry,
   deleteLogEntry,
-  deleteLogEntriesByHabitId,
+  deleteLogEntriesByGoalId,
+  type LogEntryWithGoal,
 } from '../repositories/log-repository';
 
 interface LogsState {
   logs: LogEntry[];
+  allLogs: LogEntryWithGoal[];
   isLoading: boolean;
   error: string | null;
 
   // Actions
-  loadLogsByHabitId: (habitId: string) => Promise<void>;
-  loadLogsByDateRange: (habitId: string, startDate: string, endDate: string) => Promise<void>;
+  loadLogsByGoalId: (goalId: string) => Promise<void>;
+  loadLogsByDateRange: (goalId: string, startDate: string, endDate: string) => Promise<void>;
   loadLogsByDate: (date: string) => Promise<void>;
+  loadAllLogs: () => Promise<void>;
   getLog: (id: string) => Promise<LogEntry | null>;
   addLog: (logEntry: LogEntry) => Promise<void>;
   editLog: (logEntry: LogEntry) => Promise<void>;
   removeLog: (id: string) => Promise<void>;
-  removeLogsByHabitId: (habitId: string) => Promise<void>;
+  removeLogsByGoalId: (goalId: string) => Promise<void>;
   clearError: () => void;
 }
 
 export const useLogsStore = create<LogsState>((set, get) => ({
   logs: [],
+  allLogs: [],
   isLoading: false,
   error: null,
 
-  loadLogsByHabitId: async (habitId: string) => {
+  loadLogsByGoalId: async (goalId: string) => {
     set({ isLoading: true, error: null });
     try {
-      const logs = await getLogEntriesByHabitId(habitId);
+      const logs = await getLogEntriesByGoalId(goalId);
       set({ logs, isLoading: false });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load logs';
@@ -47,10 +52,10 @@ export const useLogsStore = create<LogsState>((set, get) => ({
     }
   },
 
-  loadLogsByDateRange: async (habitId: string, startDate: string, endDate: string) => {
+  loadLogsByDateRange: async (goalId: string, startDate: string, endDate: string) => {
     set({ isLoading: true, error: null });
     try {
-      const logs = await getLogEntriesByDateRange(habitId, startDate, endDate);
+      const logs = await getLogEntriesByDateRange(goalId, startDate, endDate);
       set({ logs, isLoading: false });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load logs';
@@ -68,6 +73,18 @@ export const useLogsStore = create<LogsState>((set, get) => ({
       const errorMessage = error instanceof Error ? error.message : 'Failed to load logs';
       set({ error: errorMessage, isLoading: false });
       console.error('Error loading logs by date:', error);
+    }
+  },
+
+  loadAllLogs: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const allLogs = await getAllLogEntries();
+      set({ allLogs, isLoading: false });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load all logs';
+      set({ error: errorMessage, isLoading: false });
+      console.error('Error loading all logs:', error);
     }
   },
 
@@ -89,8 +106,8 @@ export const useLogsStore = create<LogsState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       await createLogEntry(logEntry);
-      // Reload logs for the habit
-      const logs = await getLogEntriesByHabitId(logEntry.habitId);
+      // Reload logs for the goal
+      const logs = await getLogEntriesByGoalId(logEntry.goalId);
       set({ logs, isLoading: false });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to create log';
@@ -104,8 +121,8 @@ export const useLogsStore = create<LogsState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       await updateLogEntry(logEntry);
-      // Reload logs for the habit
-      const logs = await getLogEntriesByHabitId(logEntry.habitId);
+      // Reload logs for the goal
+      const logs = await getLogEntriesByGoalId(logEntry.goalId);
       set({ logs, isLoading: false });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to update log';
@@ -123,9 +140,9 @@ export const useLogsStore = create<LogsState>((set, get) => ({
 
       await deleteLogEntry(id);
 
-      // Reload logs for the habit if we know which habit it belongs to
+      // Reload logs for the goal if we know which goal it belongs to
       if (log) {
-        const logs = await getLogEntriesByHabitId(log.habitId);
+        const logs = await getLogEntriesByGoalId(log.goalId);
         set({ logs, isLoading: false });
       } else {
         set({ isLoading: false });
@@ -138,10 +155,10 @@ export const useLogsStore = create<LogsState>((set, get) => ({
     }
   },
 
-  removeLogsByHabitId: async (habitId: string) => {
+  removeLogsByGoalId: async (goalId: string) => {
     set({ isLoading: true, error: null });
     try {
-      await deleteLogEntriesByHabitId(habitId);
+      await deleteLogEntriesByGoalId(goalId);
       set({ logs: [], isLoading: false });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to delete logs';

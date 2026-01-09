@@ -1,4 +1,4 @@
-// Habit detail screen with binary heatmap and statistics
+// Goal detail screen with type-specific statistics
 
 import { View, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,82 +6,105 @@ import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { useHabitsStore } from '@/lib/store/habits-store';
-import type { Habit } from '@/types/models';
-import { ArrowLeft, Edit, Flame, TrendingUp } from 'lucide-react-native';
+import { useGoalsStore } from '@/lib/store/goals-store';
+import type { Goal, HeatmapData, FiniteGoalProgress } from '@/types/models';
+import { ArrowLeft, Edit, Flame, TrendingUp, Target, Clock, CheckCircle, Calendar } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
 import { HabitHeatmap } from '@/components/habit-heatmap';
-import { getSingleHabitHeatmapData, getCompletionStats } from '@/lib/repositories/stats-repository';
-import { getLogEntriesByHabitId } from '@/lib/repositories/log-repository';
+import { getSingleGoalHeatmapData, getCompletionStats } from '@/lib/repositories/stats-repository';
+import { getLogEntriesByGoalId } from '@/lib/repositories/log-repository';
 import { calculateStreak } from '@/lib/utils/streak-calculator';
-import type { HeatmapData } from '@/types/models';
+import { calculateFiniteGoalProgress } from '@/lib/utils/completion-calculator';
 import { subtractMonthsFromDate, startOfDay, endOfDay } from '@/lib/utils/date-helpers';
 import { useToast } from '@/lib/context/toast-context';
 import { Skeleton, SkeletonText } from '@/components/ui/skeleton';
 
-export default function HabitDetailScreen() {
+export default function GoalDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const toast = useToast();
-  const { getHabit } = useHabitsStore();
+  const { getGoal } = useGoalsStore();
 
-  const [habit, setHabit] = useState<Habit | null>(null);
+  const [goal, setGoal] = useState<Goal | null>(null);
   const [heatmapData, setHeatmapData] = useState<HeatmapData[]>([]);
+  
+  // Recurring goal stats
   const [currentStreak, setCurrentStreak] = useState(0);
   const [longestStreak, setLongestStreak] = useState(0);
   const [completionRate, setCompletionRate] = useState(0);
   const [totalCompletions, setTotalCompletions] = useState(0);
+  
+  // Finite goal stats
+  const [finiteProgress, setFiniteProgress] = useState<FiniteGoalProgress | null>(null);
+  
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    loadHabitDetails();
+    loadGoalDetails();
   }, [id]);
 
-  const loadHabitDetails = async () => {
+  const loadGoalDetails = async () => {
     if (!id) return;
 
     setIsLoading(true);
     try {
-      const loadedHabit = await getHabit(id);
-      if (!loadedHabit) {
-        toast.error('Habit not found');
+      const loadedGoal = await getGoal(id);
+      if (!loadedGoal) {
+        toast.error('Goal not found');
         router.back();
         return;
       }
-      setHabit(loadedHabit);
+      setGoal(loadedGoal);
 
       const endDate = endOfDay(new Date()).toISOString();
       const startDate = startOfDay(subtractMonthsFromDate(new Date(), 3)).toISOString();
-      const heatmap = await getSingleHabitHeatmapData(id, startDate, endDate);
+      const heatmap = await getSingleGoalHeatmapData(id, startDate, endDate);
       setHeatmapData(heatmap);
 
-      const logs = await getLogEntriesByHabitId(id);
-      const streakInfo = calculateStreak(loadedHabit, logs);
-      setCurrentStreak(streakInfo.currentStreak);
-      setLongestStreak(streakInfo.longestStreak);
+      const logs = await getLogEntriesByGoalId(id);
 
-      const last30DaysStart = startOfDay(subtractMonthsFromDate(new Date(), 1)).toISOString();
-      const stats = await getCompletionStats(id, last30DaysStart, endDate);
-      setCompletionRate(stats.completionRate);
-      setTotalCompletions(stats.totalCompletions);
+      if (loadedGoal.goalType === 'recurring') {
+        // Calculate recurring goal stats
+        const streakInfo = calculateStreak(loadedGoal, logs);
+        setCurrentStreak(streakInfo.currentStreak);
+        setLongestStreak(streakInfo.longestStreak);
+
+        const last30DaysStart = startOfDay(subtractMonthsFromDate(new Date(), 1)).toISOString();
+        const stats = await getCompletionStats(id, last30DaysStart, endDate);
+        setCompletionRate(stats.completionRate);
+        setTotalCompletions(stats.totalCompletions);
+      } else {
+        // Calculate finite goal stats
+        const progress = calculateFiniteGoalProgress(loadedGoal, logs);
+        setFiniteProgress(progress);
+        setTotalCompletions(progress.completed);
+      }
     } catch (error) {
-      console.error('Error loading habit details:', error);
-      toast.error('Failed to load habit details');
+      console.error('Error loading goal details:', error);
+      toast.error('Failed to load goal details');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleEdit = () => {
-    if (habit) {
+    if (goal) {
       router.push({
         pathname: '/habit/[id]',
-        params: { id: habit.id },
+        params: { id: goal.id },
       });
     }
   };
 
-  if (isLoading || !habit) {
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  if (isLoading || !goal) {
     return (
       <SafeAreaView className="flex-1 bg-background" edges={['top']}>
         <View className="flex-row items-center justify-between px-5 py-4 border-b border-border">
@@ -117,11 +140,13 @@ export default function HabitDetailScreen() {
     );
   }
 
+  const isRecurring = goal.goalType === 'recurring';
+
   const getTimeRangeLabel = () => {
-    if (habit.timeRange === 'custom' && habit.customTimeRange) {
-      return `${habit.customTimeRange.value} ${habit.customTimeRange.unit}`;
+    if (goal.timeRange === 'custom' && goal.customTimeRange) {
+      return `${goal.customTimeRange.value} ${goal.customTimeRange.unit}`;
     }
-    return habit.timeRange.charAt(0).toUpperCase() + habit.timeRange.slice(1);
+    return goal.timeRange.charAt(0).toUpperCase() + goal.timeRange.slice(1);
   };
 
   return (
@@ -139,68 +164,176 @@ export default function HabitDetailScreen() {
 
       <ScrollView className="flex-1">
         <View className="p-5 gap-4">
-          {/* Hero - Habit Name */}
+          {/* Hero - Goal Name */}
           <View className="bg-card border border-border rounded-lg p-5">
-            <Text variant="display" className="text-foreground mb-2">{habit.name}</Text>
-            {habit.description && (
+            <Text variant="display" className="text-foreground mb-2">{goal.name}</Text>
+            {goal.description && (
               <Text variant="body" className="text-muted-foreground mb-4">
-                {habit.description}
+                {goal.description}
               </Text>
             )}
             <View className="flex-row items-center flex-wrap gap-2">
-              <View className="border border-border px-3 py-1.5 rounded-full">
-                <Text variant="caption" className="text-foreground font-sans-medium">
-                  {getTimeRangeLabel()}
+              {/* Goal type badge */}
+              <View className={`flex-row items-center gap-1.5 border px-3 py-1.5 rounded-full ${
+                isRecurring ? 'border-border' : 'border-primary/30 bg-primary/5'
+              }`}>
+                <Icon
+                  as={isRecurring ? Flame : Target}
+                  className={`size-3 ${isRecurring ? 'text-muted-foreground' : 'text-primary'}`}
+                />
+                <Text
+                  variant="caption"
+                  className={`font-sans-medium ${isRecurring ? 'text-muted-foreground' : 'text-primary'}`}
+                >
+                  {isRecurring ? 'Recurring' : 'Finite'}
                 </Text>
               </View>
+
+              {isRecurring && (
+                <View className="border border-border px-3 py-1.5 rounded-full">
+                  <Text variant="caption" className="text-foreground font-sans-medium">
+                    {getTimeRangeLabel()}
+                  </Text>
+                </View>
+              )}
+
               <View className="border border-border px-3 py-1.5 rounded-full">
                 <Text variant="caption" className="text-muted-foreground font-mono">
-                  {habit.targetFrequency}x
+                  {goal.targetCount}x{isRecurring ? '' : ' total'}
                 </Text>
               </View>
-              {habit.category && (
+
+              {goal.category && (
                 <View className="border border-border px-3 py-1.5 rounded-full">
                   <Text variant="caption" className="text-muted-foreground">
-                    {habit.category}
+                    {goal.category}
                   </Text>
                 </View>
               )}
             </View>
           </View>
 
-          {/* Stats Grid */}
-          <View className="flex-row gap-3">
-            {/* Current Streak */}
-            <View className="flex-1 bg-card border border-border rounded-lg p-5 items-center">
-              <Icon as={Flame} className="size-6 text-streak mb-3" />
-              <Text variant="mono-xl" className="text-foreground">{currentStreak}</Text>
-              <Text variant="caption" className="text-muted-foreground mt-1">Current Streak</Text>
-            </View>
+          {/* Stats - Different for recurring vs finite */}
+          {isRecurring ? (
+            <>
+              {/* Recurring: Streak Stats */}
+              <View className="flex-row gap-3">
+                <View className="flex-1 bg-card border border-border rounded-lg p-5 items-center">
+                  <Icon as={Flame} className="size-6 text-streak mb-3" />
+                  <Text variant="mono-xl" className="text-foreground">{currentStreak}</Text>
+                  <Text variant="caption" className="text-muted-foreground mt-1">Current Streak</Text>
+                </View>
 
-            {/* Longest Streak */}
-            <View className="flex-1 bg-card border border-border rounded-lg p-5 items-center">
-              <Icon as={TrendingUp} className="size-6 text-foreground mb-3" />
-              <Text variant="mono-xl" className="text-foreground">{longestStreak}</Text>
-              <Text variant="caption" className="text-muted-foreground mt-1">Best Streak</Text>
-            </View>
-          </View>
-
-          {/* Completion Rate (Last 30 days) */}
-          <View className="bg-card border border-border rounded-lg p-5">
-            <Text variant="h4" className="text-foreground mb-4">Last 30 Days</Text>
-            <View className="flex-row items-end justify-between">
-              <View>
-                <Text variant="mono-2xl" className="text-foreground">{completionRate}%</Text>
-                <Text variant="caption" className="text-muted-foreground mt-1">Completion Rate</Text>
+                <View className="flex-1 bg-card border border-border rounded-lg p-5 items-center">
+                  <Icon as={TrendingUp} className="size-6 text-foreground mb-3" />
+                  <Text variant="mono-xl" className="text-foreground">{longestStreak}</Text>
+                  <Text variant="caption" className="text-muted-foreground mt-1">Best Streak</Text>
+                </View>
               </View>
-              <View className="items-end">
-                <Text variant="mono-lg" className="text-foreground">{totalCompletions}</Text>
-                <Text variant="caption" className="text-muted-foreground mt-1">Completions</Text>
-              </View>
-            </View>
-          </View>
 
-          {/* Heatmap */}
+              {/* Recurring: Completion Rate */}
+              <View className="bg-card border border-border rounded-lg p-5">
+                <Text variant="h4" className="text-foreground mb-4">Last 30 Days</Text>
+                <View className="flex-row items-end justify-between">
+                  <View>
+                    <Text variant="mono-2xl" className="text-foreground">{completionRate}%</Text>
+                    <Text variant="caption" className="text-muted-foreground mt-1">Completion Rate</Text>
+                  </View>
+                  <View className="items-end">
+                    <Text variant="mono-lg" className="text-foreground">{totalCompletions}</Text>
+                    <Text variant="caption" className="text-muted-foreground mt-1">Completions</Text>
+                  </View>
+                </View>
+              </View>
+            </>
+          ) : (
+            <>
+              {/* Finite: Progress Overview */}
+              {finiteProgress && (
+                <>
+                  {/* Large Progress Card */}
+                  <View className={`bg-card border rounded-lg p-5 ${
+                    finiteProgress.isComplete ? 'border-success/50 bg-success/5' : 'border-border'
+                  }`}>
+                    <View className="flex-row items-center justify-between mb-4">
+                      <Text variant="h4" className="text-foreground">Progress</Text>
+                      {finiteProgress.isComplete && (
+                        <View className="flex-row items-center gap-1.5 bg-success/10 px-3 py-1 rounded-full">
+                          <Icon as={CheckCircle} className="size-4 text-success" />
+                          <Text variant="caption" className="font-sans-medium text-success">Complete!</Text>
+                        </View>
+                      )}
+                      {finiteProgress.isOverdue && !finiteProgress.isComplete && (
+                        <View className="flex-row items-center gap-1.5 bg-destructive/10 px-3 py-1 rounded-full">
+                          <Icon as={Clock} className="size-4 text-destructive" />
+                          <Text variant="caption" className="font-sans-medium text-destructive">Overdue</Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Large percentage */}
+                    <Text variant="display" className={`text-center mb-2 ${
+                      finiteProgress.isComplete ? 'text-success' : 'text-foreground'
+                    }`}>
+                      {finiteProgress.percentage}%
+                    </Text>
+
+                    {/* Progress bar */}
+                    <View className="h-3 w-full rounded-full bg-border/40 overflow-hidden mb-3">
+                      <View
+                        className={`h-full rounded-full ${finiteProgress.isComplete ? 'bg-success' : 'bg-primary'}`}
+                        style={{ width: `${finiteProgress.percentage}%` }}
+                      />
+                    </View>
+
+                    {/* Completion count */}
+                    <Text variant="body" className="text-center text-muted-foreground">
+                      {finiteProgress.completed} of {finiteProgress.target} completed
+                    </Text>
+                  </View>
+
+                  {/* Time Stats */}
+                  <View className="flex-row gap-3">
+                    <View className="flex-1 bg-card border border-border rounded-lg p-5 items-center">
+                      <Icon as={Calendar} className="size-6 text-foreground mb-3" />
+                      <Text variant="mono-xl" className="text-foreground">{finiteProgress.daysElapsed}</Text>
+                      <Text variant="caption" className="text-muted-foreground mt-1">Days Elapsed</Text>
+                    </View>
+
+                    <View className="flex-1 bg-card border border-border rounded-lg p-5 items-center">
+                      <Icon as={Clock} className={`size-6 mb-3 ${
+                        finiteProgress.isOverdue ? 'text-destructive' : 'text-foreground'
+                      }`} />
+                      <Text variant="mono-xl" className={
+                        finiteProgress.isOverdue ? 'text-destructive' : 'text-foreground'
+                      }>
+                        {finiteProgress.daysRemaining}
+                      </Text>
+                      <Text variant="caption" className="text-muted-foreground mt-1">Days Left</Text>
+                    </View>
+                  </View>
+
+                  {/* Deadline */}
+                  {goal.endDate && (
+                    <View className="bg-card border border-border rounded-lg p-5">
+                      <View className="flex-row items-center justify-between">
+                        <View>
+                          <Text variant="caption" className="text-muted-foreground mb-1">Deadline</Text>
+                          <Text variant="h4" className="text-foreground">{formatDate(goal.endDate)}</Text>
+                        </View>
+                        <View className="items-end">
+                          <Text variant="caption" className="text-muted-foreground mb-1">Started</Text>
+                          <Text variant="body" className="text-foreground">{formatDate(goal.startDate)}</Text>
+                        </View>
+                      </View>
+                    </View>
+                  )}
+                </>
+              )}
+            </>
+          )}
+
+          {/* Heatmap - useful for both types */}
           <HabitHeatmap data={heatmapData} />
         </View>
       </ScrollView>

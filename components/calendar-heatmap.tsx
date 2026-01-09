@@ -1,4 +1,4 @@
-// Multi-tone heatmap component for calendar view (all habits)
+// Multi-tone heatmap component for calendar view (all goals)
 
 import { View, ScrollView } from 'react-native';
 import { Text } from '@/components/ui/text';
@@ -26,7 +26,7 @@ export function CalendarHeatmap({ data, showMonthLabels = true }: CalendarHeatma
       currentWeek.push({
         date: '',
         completionCount: 0,
-        totalHabits: 0,
+        totalGoals: 0,
         intensity: 0,
       });
     }
@@ -45,7 +45,7 @@ export function CalendarHeatmap({ data, showMonthLabels = true }: CalendarHeatma
         currentWeek.push({
           date: '',
           completionCount: 0,
-          totalHabits: 0,
+          totalGoals: 0,
           intensity: 0,
         });
       }
@@ -93,15 +93,36 @@ export function CalendarHeatmap({ data, showMonthLabels = true }: CalendarHeatma
     }
   };
 
+  // Calculate stats for display
+  const daysWithActivity = data.filter((day) => day.completionCount > 0).length;
+  const daysWithGoals = data.filter((day) => day.totalGoals > 0).length;
+
+  if (data.length === 0) {
+    return (
+      <View className="rounded-lg border border-border bg-card p-5">
+        <Text variant="h4" className="mb-4 text-foreground">
+          Activity Overview
+        </Text>
+        <View className="items-center justify-center py-8">
+          <Text variant="body" className="text-center text-muted-foreground">
+            No activity data yet
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
-    <View className="bg-card border border-border rounded-lg p-5">
-      <Text variant="h4" className="text-foreground mb-4">Activity Overview</Text>
+    <View className="rounded-lg border border-border bg-card p-5">
+      <Text variant="h4" className="mb-4 text-foreground">
+        Activity Overview
+      </Text>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View>
           {/* Month labels */}
           {showMonthLabels && (
-            <View className="flex-row mb-3" style={{ height: 16 }}>
+            <View className="mb-3 flex-row" style={{ height: 16 }}>
               {monthLabels.map((month) => (
                 <View
                   key={`${month.label}-${month.weekIndex}`}
@@ -109,7 +130,7 @@ export function CalendarHeatmap({ data, showMonthLabels = true }: CalendarHeatma
                     position: 'absolute',
                     left: 28 + month.weekIndex * (CELL_SIZE + CELL_GAP),
                   }}>
-                  <Text variant="caption" className="text-muted-foreground font-mono">
+                  <Text variant="caption" className="font-mono text-muted-foreground">
                     {month.label}
                   </Text>
                 </View>
@@ -130,17 +151,17 @@ export function CalendarHeatmap({ data, showMonthLabels = true }: CalendarHeatma
                     justifyContent: 'center',
                   }}>
                   {dayIndex === 1 && (
-                    <Text variant="caption" className="text-muted-foreground font-mono">
+                    <Text variant="caption" className="font-mono text-muted-foreground">
                       Mon
                     </Text>
                   )}
                   {dayIndex === 3 && (
-                    <Text variant="caption" className="text-muted-foreground font-mono">
+                    <Text variant="caption" className="font-mono text-muted-foreground">
                       Wed
                     </Text>
                   )}
                   {dayIndex === 5 && (
-                    <Text variant="caption" className="text-muted-foreground font-mono">
+                    <Text variant="caption" className="font-mono text-muted-foreground">
                       Fri
                     </Text>
                   )}
@@ -167,16 +188,20 @@ export function CalendarHeatmap({ data, showMonthLabels = true }: CalendarHeatma
           </View>
 
           {/* Legend */}
-          <View className="flex-row items-center gap-3 mt-4">
-            <Text variant="caption" className="text-muted-foreground">Less</Text>
+          <View className="mt-4 flex-row items-center gap-3">
+            <Text variant="caption" className="text-muted-foreground">
+              Less
+            </Text>
             <View className="flex-row gap-1">
-              <View className="bg-heatmap-0 rounded-sm" style={{ width: 12, height: 12 }} />
-              <View className="bg-heatmap-1 rounded-sm" style={{ width: 12, height: 12 }} />
-              <View className="bg-heatmap-2 rounded-sm" style={{ width: 12, height: 12 }} />
-              <View className="bg-heatmap-3 rounded-sm" style={{ width: 12, height: 12 }} />
-              <View className="bg-heatmap-4 rounded-sm" style={{ width: 12, height: 12 }} />
+              <View className="rounded-sm bg-heatmap-0" style={{ width: 12, height: 12 }} />
+              <View className="rounded-sm bg-heatmap-1" style={{ width: 12, height: 12 }} />
+              <View className="rounded-sm bg-heatmap-2" style={{ width: 12, height: 12 }} />
+              <View className="rounded-sm bg-heatmap-3" style={{ width: 12, height: 12 }} />
+              <View className="rounded-sm bg-heatmap-4" style={{ width: 12, height: 12 }} />
             </View>
-            <Text variant="caption" className="text-muted-foreground">More</Text>
+            <Text variant="caption" className="text-muted-foreground">
+              More
+            </Text>
           </View>
         </View>
       </ScrollView>

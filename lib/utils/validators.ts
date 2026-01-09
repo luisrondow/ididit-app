@@ -1,6 +1,6 @@
 // Form and data validation utilities
 
-import type { Habit } from '@/types/models';
+import type { Goal } from '@/types/models';
 
 export interface ValidationError {
   field: string;
@@ -13,26 +13,26 @@ export interface ValidationResult {
 }
 
 /**
- * Validate habit data
+ * Validate goal data
  */
-export function validateHabit(habit: Partial<Habit>): ValidationResult {
+export function validateGoal(goal: Partial<Goal>): ValidationResult {
   const errors: ValidationError[] = [];
 
   // Name is required
-  if (!habit.name || habit.name.trim().length === 0) {
+  if (!goal.name || goal.name.trim().length === 0) {
     errors.push({
       field: 'name',
-      message: 'Habit name is required',
+      message: 'Goal name is required',
     });
-  } else if (habit.name.length > 100) {
+  } else if (goal.name.length > 100) {
     errors.push({
       field: 'name',
-      message: 'Habit name must be less than 100 characters',
+      message: 'Goal name must be less than 100 characters',
     });
   }
 
   // Description length check
-  if (habit.description && habit.description.length > 500) {
+  if (goal.description && goal.description.length > 500) {
     errors.push({
       field: 'description',
       message: 'Description must be less than 500 characters',
@@ -40,72 +40,97 @@ export function validateHabit(habit: Partial<Habit>): ValidationResult {
   }
 
   // Category length check
-  if (habit.category && habit.category.length > 50) {
+  if (goal.category && goal.category.length > 50) {
     errors.push({
       field: 'category',
       message: 'Category must be less than 50 characters',
     });
   }
 
-  // Time range is required
-  if (!habit.timeRange) {
+  // Goal type is required
+  if (!goal.goalType) {
     errors.push({
-      field: 'timeRange',
-      message: 'Time range is required',
+      field: 'goalType',
+      message: 'Goal type is required',
     });
-  } else if (!['daily', 'weekly', 'monthly', 'custom'].includes(habit.timeRange)) {
+  } else if (!['recurring', 'finite'].includes(goal.goalType)) {
     errors.push({
-      field: 'timeRange',
-      message: 'Invalid time range',
+      field: 'goalType',
+      message: 'Invalid goal type',
     });
   }
 
-  // Custom time range validation
-  if (habit.timeRange === 'custom') {
-    if (!habit.customTimeRange) {
+  // Time range validation (only for recurring goals)
+  if (goal.goalType === 'recurring') {
+    if (!goal.timeRange) {
       errors.push({
-        field: 'customTimeRange',
-        message: 'Custom time range is required when time range is set to custom',
+        field: 'timeRange',
+        message: 'Time range is required for recurring goals',
       });
-    } else {
-      if (!habit.customTimeRange.value || habit.customTimeRange.value < 1) {
+    } else if (!['daily', 'weekly', 'monthly', 'custom'].includes(goal.timeRange)) {
+      errors.push({
+        field: 'timeRange',
+        message: 'Invalid time range',
+      });
+    }
+
+    // Custom time range validation
+    if (goal.timeRange === 'custom') {
+      if (!goal.customTimeRange) {
         errors.push({
-          field: 'customTimeRange.value',
-          message: 'Custom time range value must be at least 1',
+          field: 'customTimeRange',
+          message: 'Custom time range is required when time range is set to custom',
         });
-      }
-      if (
-        !habit.customTimeRange.unit ||
-        !['days', 'weeks', 'months'].includes(habit.customTimeRange.unit)
-      ) {
-        errors.push({
-          field: 'customTimeRange.unit',
-          message: 'Invalid custom time range unit',
-        });
+      } else {
+        if (!goal.customTimeRange.value || goal.customTimeRange.value < 1) {
+          errors.push({
+            field: 'customTimeRange.value',
+            message: 'Custom time range value must be at least 1',
+          });
+        }
+        if (
+          !goal.customTimeRange.unit ||
+          !['days', 'weeks', 'months'].includes(goal.customTimeRange.unit)
+        ) {
+          errors.push({
+            field: 'customTimeRange.unit',
+            message: 'Invalid custom time range unit',
+          });
+        }
       }
     }
   }
 
-  // Target frequency is required and must be positive
-  if (!habit.targetFrequency || habit.targetFrequency < 1) {
+  // Finite goals require an end date
+  if (goal.goalType === 'finite') {
+    if (!goal.endDate) {
+      errors.push({
+        field: 'endDate',
+        message: 'Deadline is required for finite goals',
+      });
+    }
+  }
+
+  // Target count is required and must be positive
+  if (!goal.targetCount || goal.targetCount < 1) {
     errors.push({
-      field: 'targetFrequency',
-      message: 'Target frequency must be at least 1',
+      field: 'targetCount',
+      message: 'Target count must be at least 1',
     });
-  } else if (habit.targetFrequency > 1000) {
+  } else if (goal.targetCount > 10000) {
     errors.push({
-      field: 'targetFrequency',
-      message: 'Target frequency must be less than 1000',
+      field: 'targetCount',
+      message: 'Target count must be less than 10000',
     });
   }
 
   // Start date is required
-  if (!habit.startDate) {
+  if (!goal.startDate) {
     errors.push({
       field: 'startDate',
       message: 'Start date is required',
     });
-  } else if (!isValidISODate(habit.startDate)) {
+  } else if (!isValidISODate(goal.startDate)) {
     errors.push({
       field: 'startDate',
       message: 'Invalid start date format',
@@ -113,16 +138,16 @@ export function validateHabit(habit: Partial<Habit>): ValidationResult {
   }
 
   // End date validation (if provided)
-  if (habit.endDate) {
-    if (!isValidISODate(habit.endDate)) {
+  if (goal.endDate) {
+    if (!isValidISODate(goal.endDate)) {
       errors.push({
         field: 'endDate',
         message: 'Invalid end date format',
       });
-    } else if (habit.startDate && new Date(habit.endDate) < new Date(habit.startDate)) {
+    } else if (goal.startDate && new Date(goal.endDate) < new Date(goal.startDate)) {
       errors.push({
         field: 'endDate',
-        message: 'End date must be after start date',
+        message: 'Deadline must be after start date',
       });
     }
   }
@@ -132,6 +157,9 @@ export function validateHabit(habit: Partial<Habit>): ValidationResult {
     errors,
   };
 }
+
+// Legacy alias
+export const validateHabit = validateGoal;
 
 /**
  * Validate log entry completion date
@@ -206,11 +234,14 @@ export function sanitizeString(input: string): string {
 }
 
 /**
- * Validate and sanitize habit name
+ * Validate and sanitize goal name
  */
-export function sanitizeHabitName(name: string): string {
+export function sanitizeGoalName(name: string): string {
   return sanitizeString(name).substring(0, 100);
 }
+
+// Legacy alias
+export const sanitizeHabitName = sanitizeGoalName;
 
 /**
  * Validate and sanitize description

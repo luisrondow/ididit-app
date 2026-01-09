@@ -1,6 +1,6 @@
-// Create new habit screen
+// Create new goal screen
 
-import { View, ScrollView, Pressable } from 'react-native';
+import { View, ScrollView, Pressable, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/ui/text';
 import { Input } from '@/components/ui/input';
@@ -9,13 +9,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { useHabitsStore } from '@/lib/store/habits-store';
-import type { Habit } from '@/types/models';
-import { validateHabit } from '@/lib/utils/validators';
-import { ArrowLeft } from 'lucide-react-native';
+import { useGoalsStore } from '@/lib/store/goals-store';
+import type { Goal } from '@/types/models';
+import { validateGoal } from '@/lib/utils/validators';
+import { ArrowLeft, Target, Repeat, Calendar } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
 import { useToast } from '@/lib/context/toast-context';
 import { haptics } from '@/lib/utils/haptics';
+import DateTimePicker from '@react-native-community/datetimepicker';
+
+const GOAL_TYPES = [
+  { value: 'recurring', label: 'Recurring', icon: Repeat, description: 'Resets each period' },
+  { value: 'finite', label: 'Finite', icon: Target, description: 'One-time target' },
+] as const;
 
 const TIME_RANGES = [
   { value: 'daily', label: 'Daily' },
@@ -30,44 +36,49 @@ const CUSTOM_UNITS = [
   { value: 'months', label: 'Months' },
 ] as const;
 
-export default function NewHabitScreen() {
+export default function NewGoalScreen() {
   const router = useRouter();
   const toast = useToast();
-  const { addHabit } = useHabitsStore();
+  const { addGoal } = useGoalsStore();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
+  const [goalType, setGoalType] = useState<'recurring' | 'finite'>('recurring');
   const [timeRange, setTimeRange] = useState<'daily' | 'weekly' | 'monthly' | 'custom'>('daily');
   const [customValue, setCustomValue] = useState('1');
   const [customUnit, setCustomUnit] = useState<'days' | 'weeks' | 'months'>('days');
-  const [targetFrequency, setTargetFrequency] = useState('1');
+  const [targetCount, setTargetCount] = useState('1');
+  const [endDate, setEndDate] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
 
   const handleCreate = async () => {
     const now = new Date().toISOString();
-    const newHabit: Habit = {
-      id: `habit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    const newGoal: Goal = {
+      id: `goal_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       name: name.trim(),
       description: description.trim() || undefined,
       category: category.trim() || undefined,
-      timeRange,
+      goalType,
+      timeRange: goalType === 'recurring' ? timeRange : 'custom', // Finite goals use custom
       customTimeRange:
-        timeRange === 'custom'
+        goalType === 'recurring' && timeRange === 'custom'
           ? {
               value: parseInt(customValue, 10),
               unit: customUnit,
             }
           : undefined,
-      targetFrequency: parseInt(targetFrequency, 10),
+      targetCount: parseInt(targetCount, 10),
       startDate: now,
+      endDate: goalType === 'finite' && endDate ? endDate.toISOString() : undefined,
       createdAt: now,
       updatedAt: now,
       isArchived: false,
     };
 
-    const validation = validateHabit(newHabit);
+    const validation = validateGoal(newGoal);
     if (!validation.isValid) {
       const errorMap: Record<string, string> = {};
       validation.errors.forEach((error) => {
@@ -81,17 +92,32 @@ export default function NewHabitScreen() {
     setIsLoading(true);
 
     try {
-      await addHabit(newHabit);
+      await addGoal(newGoal);
       haptics.success();
-      toast.success('Habit created!');
+      toast.success('Goal created!');
       router.back();
     } catch (error) {
       haptics.error();
-      toast.error('Failed to create habit');
-      console.error('Error creating habit:', error);
+      toast.error('Failed to create goal');
+      console.error('Error creating goal:', error);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setEndDate(selectedDate);
+    }
+  };
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
   };
 
   return (
@@ -101,19 +127,60 @@ export default function NewHabitScreen() {
         <Button size="icon" variant="ghost" onPress={() => router.back()}>
           <Icon as={ArrowLeft} className="size-5 text-foreground" />
         </Button>
-        <Text variant="h3" className="text-foreground">New Habit</Text>
+        <Text variant="h3" className="text-foreground">New Goal</Text>
         <View className="w-10" />
       </View>
 
       <ScrollView className="flex-1 p-5">
         <View className="gap-5">
+          {/* Goal Type Selector */}
+          <View className="gap-3">
+            <Label className="font-sans-medium">Goal Type</Label>
+            <View className="flex-row gap-3">
+              {GOAL_TYPES.map((type) => (
+                <Pressable
+                  key={type.value}
+                  onPress={() => setGoalType(type.value)}
+                  className={`flex-1 p-4 rounded-xl border ${
+                    goalType === type.value
+                      ? 'bg-primary/10 border-primary'
+                      : 'bg-card border-border'
+                  }`}
+                >
+                  <View className="items-center gap-2">
+                    <Icon
+                      as={type.icon}
+                      className={`size-6 ${
+                        goalType === type.value ? 'text-primary' : 'text-muted-foreground'
+                      }`}
+                    />
+                    <Text
+                      variant="body"
+                      className={`font-sans-medium ${
+                        goalType === type.value ? 'text-primary' : 'text-foreground'
+                      }`}
+                    >
+                      {type.label}
+                    </Text>
+                    <Text
+                      variant="caption"
+                      className="text-muted-foreground text-center"
+                    >
+                      {type.description}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
           {/* Name */}
           <View className="gap-2">
             <Label className="font-sans-medium">Name</Label>
             <Input
               value={name}
               onChangeText={setName}
-              placeholder="e.g., Morning Meditation"
+              placeholder={goalType === 'recurring' ? 'e.g., Morning Meditation' : 'e.g., Read 10 Books'}
               className={errors.name ? 'border-destructive' : ''}
             />
             {errors.name && (
@@ -141,7 +208,7 @@ export default function NewHabitScreen() {
             <Input
               value={category}
               onChangeText={setCategory}
-              placeholder="e.g., Health, Productivity"
+              placeholder="e.g., Health, Learning"
               className={errors.category ? 'border-destructive' : ''}
             />
             {errors.category && (
@@ -149,35 +216,37 @@ export default function NewHabitScreen() {
             )}
           </View>
 
-          {/* Time Range */}
-          <View className="gap-3">
-            <Label className="font-sans-medium">Time Range</Label>
-            <View className="flex-row flex-wrap gap-2">
-              {TIME_RANGES.map((range) => (
-                <Pressable
-                  key={range.value}
-                  onPress={() => setTimeRange(range.value)}
-                  className={`px-4 py-2.5 rounded-full border ${
-                    timeRange === range.value
-                      ? 'bg-primary border-primary'
-                      : 'bg-transparent border-border'
-                  }`}
-                >
-                  <Text
-                    variant="body"
-                    className={`font-sans-medium ${
-                      timeRange === range.value ? 'text-primary-foreground' : 'text-foreground'
+          {/* Time Range (Recurring only) */}
+          {goalType === 'recurring' && (
+            <View className="gap-3">
+              <Label className="font-sans-medium">Time Range</Label>
+              <View className="flex-row flex-wrap gap-2">
+                {TIME_RANGES.map((range) => (
+                  <Pressable
+                    key={range.value}
+                    onPress={() => setTimeRange(range.value)}
+                    className={`px-4 py-2.5 rounded-full border ${
+                      timeRange === range.value
+                        ? 'bg-primary border-primary'
+                        : 'bg-transparent border-border'
                     }`}
                   >
-                    {range.label}
-                  </Text>
-                </Pressable>
-              ))}
+                    <Text
+                      variant="body"
+                      className={`font-sans-medium ${
+                        timeRange === range.value ? 'text-primary-foreground' : 'text-foreground'
+                      }`}
+                    >
+                      {range.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
-          </View>
+          )}
 
-          {/* Custom Time Range */}
-          {timeRange === 'custom' && (
+          {/* Custom Time Range (Recurring + Custom) */}
+          {goalType === 'recurring' && timeRange === 'custom' && (
             <View className="gap-3">
               <Label className="font-sans-medium">Custom Period</Label>
               <View className="flex-row gap-3 items-center">
@@ -214,28 +283,66 @@ export default function NewHabitScreen() {
             </View>
           )}
 
-          {/* Target Frequency */}
+          {/* Target Count */}
           <View className="gap-2">
-            <Label className="font-sans-medium">Target Frequency</Label>
+            <Label className="font-sans-medium">
+              {goalType === 'recurring' ? 'Target per Period' : 'Target Count'}
+            </Label>
             <Input
-              value={targetFrequency}
-              onChangeText={setTargetFrequency}
+              value={targetCount}
+              onChangeText={setTargetCount}
               placeholder="1"
               keyboardType="number-pad"
-              className={errors.targetFrequency ? 'border-destructive' : ''}
+              className={errors.targetCount ? 'border-destructive' : ''}
             />
             <Text variant="caption" className="text-muted-foreground">
-              Times per {timeRange === 'custom' ? 'period' : timeRange.replace('ly', '')}
+              {goalType === 'recurring'
+                ? `Times per ${timeRange === 'custom' ? 'period' : timeRange.replace('ly', '')}`
+                : 'Total times to complete this goal'}
             </Text>
-            {errors.targetFrequency && (
-              <Text variant="caption" className="text-destructive">{errors.targetFrequency}</Text>
+            {errors.targetCount && (
+              <Text variant="caption" className="text-destructive">{errors.targetCount}</Text>
             )}
           </View>
+
+          {/* Deadline (Finite only) */}
+          {goalType === 'finite' && (
+            <View className="gap-2">
+              <Label className="font-sans-medium">Deadline</Label>
+              <Pressable
+                onPress={() => setShowDatePicker(true)}
+                className={`flex-row items-center gap-3 p-4 rounded-lg border ${
+                  errors.endDate ? 'border-destructive' : 'border-border'
+                } bg-card`}
+              >
+                <Icon as={Calendar} className="size-5 text-muted-foreground" />
+                <Text
+                  variant="body"
+                  className={endDate ? 'text-foreground' : 'text-muted-foreground'}
+                >
+                  {endDate ? formatDate(endDate) : 'Select a deadline...'}
+                </Text>
+              </Pressable>
+              {errors.endDate && (
+                <Text variant="caption" className="text-destructive">{errors.endDate}</Text>
+              )}
+
+              {showDatePicker && (
+                <DateTimePicker
+                  value={endDate || new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handleDateChange}
+                  minimumDate={new Date()}
+                />
+              )}
+            </View>
+          )}
 
           {/* Create Button */}
           <Button onPress={handleCreate} disabled={isLoading} className="mt-4">
             <Text className="text-primary-foreground font-sans-medium">
-              {isLoading ? 'Creating...' : 'Create Habit'}
+              {isLoading ? 'Creating...' : 'Create Goal'}
             </Text>
           </Button>
         </View>
