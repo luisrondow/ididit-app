@@ -69,8 +69,9 @@ export default function GoalDetailScreen() {
         setCurrentStreak(streakInfo.currentStreak);
         setLongestStreak(streakInfo.longestStreak);
 
-        const last30DaysStart = startOfDay(subtractMonthsFromDate(new Date(), 1)).toISOString();
-        const stats = await getCompletionStats(id, last30DaysStart, endDate);
+        const thisMonthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+        const monthStart = startOfDay(thisMonthStart).toISOString();
+        const stats = await getCompletionStats(id, monthStart, endDate);
         setCompletionRate(stats.completionRate);
         setTotalCompletions(stats.totalCompletions);
       } else {
@@ -185,7 +186,7 @@ export default function GoalDetailScreen() {
                   variant="caption"
                   className={`font-sans-medium ${isRecurring ? 'text-muted-foreground' : 'text-primary'}`}
                 >
-                  {isRecurring ? 'Recurring' : 'Finite'}
+                  {isRecurring ? 'Habit' : 'Milestone'}
                 </Text>
               </View>
 
@@ -233,7 +234,7 @@ export default function GoalDetailScreen() {
 
               {/* Recurring: Completion Rate */}
               <View className="bg-card border border-border rounded-lg p-5">
-                <Text variant="h4" className="text-foreground mb-4">Last 30 Days</Text>
+                <Text variant="h4" className="text-foreground mb-4">This Month</Text>
                 <View className="flex-row items-end justify-between">
                   <View>
                     <Text variant="mono-2xl" className="text-foreground">{completionRate}%</Text>

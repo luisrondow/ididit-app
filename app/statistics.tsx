@@ -156,12 +156,12 @@ export default function StatisticsScreen() {
                   <View className="flex-1 bg-card border border-border rounded-lg p-4 items-center">
                     <Icon as={Repeat} className="size-5 text-muted-foreground mb-2" />
                     <Text variant="mono-lg" className="text-foreground">{recurringCount}</Text>
-                    <Text variant="caption" className="text-muted-foreground mt-1">Recurring</Text>
+                    <Text variant="caption" className="text-muted-foreground mt-1">Habit</Text>
                   </View>
                   <View className="flex-1 bg-card border border-primary/30 bg-primary/5 rounded-lg p-4 items-center">
                     <Icon as={Target} className="size-5 text-primary mb-2" />
                     <Text variant="mono-lg" className="text-foreground">{finiteCount}</Text>
-                    <Text variant="caption" className="text-muted-foreground mt-1">Finite</Text>
+                    <Text variant="caption" className="text-muted-foreground mt-1">Milestone</Text>
                   </View>
                 </View>
               </View>

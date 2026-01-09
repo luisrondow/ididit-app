@@ -17,20 +17,29 @@ import { useRouter } from 'expo-router';
 import type { LogEntry, Goal } from '@/types/models';
 import { format, isValid } from 'date-fns';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { MilestoneCompletedDialog } from '@/components/milestone-completed-dialog';
 
 export default function NewLogScreen() {
   const router = useRouter();
   const toast = useToast();
   const colorScheme = useColorScheme();
   const { goals, loadActiveGoals } = useGoalsStore();
-  const { addLog } = useLogsStore();
+  const { addLogWithMilestoneCheck } = useLogsStore();
 
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [showGoalPicker, setShowGoalPicker] = useState(false);
   const [notes, setNotes] = useState('');
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [showDateTimePicker, setShowDateTimePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  });
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Milestone celebration state
+  const [showMilestoneDialog, setShowMilestoneDialog] = useState(false);
+  const [completedMilestoneGoal, setCompletedMilestoneGoal] = useState<Goal | null>(null);
 
   // Load goals on mount
   useEffect(() => {
@@ -44,14 +53,25 @@ export default function NewLogScreen() {
     }
   }, [goals, selectedGoal]);
 
-  const handleDateTimeChange = useCallback((event: any, date?: Date) => {
+  const handleDateChange = useCallback((event: any, date?: Date) => {
     if (Platform.OS === 'android') {
-      setShowDateTimePicker(false);
+      setShowDatePicker(false);
     }
     if (date && isValid(date)) {
+      // Keep time at 00:00:00
+      date.setHours(0, 0, 0, 0);
       setSelectedDate(date);
     }
   }, []);
+
+  // Handle closing the milestone dialog and navigating back
+  const handleMilestoneDialogClose = useCallback((open: boolean) => {
+    setShowMilestoneDialog(open);
+    if (!open) {
+      // Navigate back after closing the celebration dialog
+      router.back();
+    }
+  }, [router]);
 
   const handleSubmit = useCallback(async () => {
     if (!selectedGoal) {
@@ -77,10 +97,18 @@ export default function NewLogScreen() {
     };
 
     try {
-      await addLog(newLog);
-      haptics.success();
-      toast.success('Activity logged!');
-      router.back();
+      const result = await addLogWithMilestoneCheck(newLog, selectedGoal);
+
+      if (result.milestoneJustCompleted) {
+        // Show celebration dialog instead of immediately navigating back
+        setCompletedMilestoneGoal(selectedGoal);
+        setShowMilestoneDialog(true);
+        // Don't show toast or navigate - the dialog will handle it
+      } else {
+        haptics.success();
+        toast.success('Activity logged!');
+        router.back();
+      }
     } catch (error) {
       haptics.error();
       toast.error('Failed to log activity');
@@ -88,9 +116,10 @@ export default function NewLogScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedGoal, selectedDate, notes, addLog, router, toast]);
+  }, [selectedGoal, selectedDate, notes, addLogWithMilestoneCheck, router, toast]);
 
   return (
+    <>
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       {/* Header */}
       <View className="flex-row items-center justify-between border-b border-border px-5 py-4">
@@ -165,31 +194,31 @@ export default function NewLogScreen() {
             )}
           </View>
 
-          {/* Date & Time Picker */}
+          {/* Date Picker */}
           <View className="gap-2">
-            <Label className="font-sans-medium">Date & Time</Label>
+            <Label className="font-sans-medium">Date</Label>
             <Pressable
-              onPress={() => setShowDateTimePicker(!showDateTimePicker)}
+              onPress={() => setShowDatePicker(!showDatePicker)}
               className="rounded-lg border border-border bg-background px-4 py-3.5">
               <Text variant="body" className="text-foreground">
-                {format(selectedDate, 'EEEE, MMM d, yyyy · h:mm a')}
+                {format(selectedDate, 'EEEE, MMM d, yyyy')}
               </Text>
             </Pressable>
 
-            {showDateTimePicker && (
+            {showDatePicker && (
               <View className="items-center overflow-hidden rounded-lg border border-border bg-card">
                 <DateTimePicker
                   value={selectedDate}
-                  mode="datetime"
+                  mode="date"
                   display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                  onChange={handleDateTimeChange}
+                  onChange={handleDateChange}
                   maximumDate={new Date()}
                   themeVariant={colorScheme ?? 'light'}
                   accentColor="#3b82f6"
                 />
                 {Platform.OS === 'ios' && (
                   <View className="w-full border-t border-border p-3">
-                    <Button onPress={() => setShowDateTimePicker(false)}>
+                    <Button onPress={() => setShowDatePicker(false)}>
                       <Text className="font-sans-medium text-primary-foreground">Done</Text>
                     </Button>
                   </View>
@@ -218,5 +247,13 @@ export default function NewLogScreen() {
         </View>
       </ScrollView>
     </SafeAreaView>
+
+    {/* Milestone Completion Celebration Dialog */}
+    <MilestoneCompletedDialog
+      open={showMilestoneDialog}
+      onOpenChange={handleMilestoneDialogClose}
+      goal={completedMilestoneGoal}
+    />
+    </>
   );
 }

@@ -6,7 +6,7 @@ import { Text } from '@/components/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useCallback } from 'react';
 import { useLogsStore } from '@/lib/store/logs-store';
-import { Trash2, Clock, FileText } from 'lucide-react-native';
+import { Trash2, FileText } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
 import { SkeletonCard } from '@/components/ui/skeleton';
 import { FadeInView } from '@/components/ui/animated-view';
@@ -132,42 +132,36 @@ export default function LogsScreen() {
                       </Text>
                       
                       {/* Logs for this date */}
-                      <View className="gap-2">
-                        {logsForDate.map((log) => (
+                      <View className="rounded-lg border border-border overflow-hidden">
+                        {logsForDate.map((log, index) => (
                           <View
                             key={log.id}
-                            className="bg-card border border-border rounded-lg p-4"
+                            className={`flex-row items-center justify-between px-4 py-3 ${
+                              index < logsForDate.length - 1 ? 'border-b border-border' : ''
+                            }`}
                           >
-                            <View className="flex-row items-start justify-between">
-                              <View className="flex-1 mr-3">
-                                <Text variant="h4" className="text-foreground mb-1">
-                                  {log.goalName}
+                            <View className="flex-1 mr-3">
+                              <Text variant="body" className="text-foreground font-sans-medium">
+                                {log.goalName}
+                              </Text>
+                              {log.notes && (
+                                <Text
+                                  variant="caption"
+                                  className="text-muted-foreground mt-1"
+                                  numberOfLines={1}
+                                >
+                                  {log.notes}
                                 </Text>
-                                <View className="flex-row items-center gap-1">
-                                  <Icon as={Clock} className="size-3 text-muted-foreground" />
-                                  <Text variant="mono" className="text-muted-foreground">
-                                    {format(parseISO(log.completedAt), 'h:mm a')}
-                                  </Text>
-                                </View>
-                                {log.notes && (
-                                  <Text
-                                    variant="body"
-                                    className="text-muted-foreground mt-2"
-                                    numberOfLines={2}
-                                  >
-                                    {log.notes}
-                                  </Text>
-                                )}
-                              </View>
-                              
-                              <Pressable
-                                onPress={() => handleDeleteLog(log.id, log.goalName)}
-                                className="p-2 active:opacity-70"
-                                hitSlop={8}
-                              >
-                                <Icon as={Trash2} className="size-4 text-muted-foreground" />
-                              </Pressable>
+                              )}
                             </View>
+                            
+                            <Pressable
+                              onPress={() => handleDeleteLog(log.id, log.goalName)}
+                              className="p-2 active:opacity-70"
+                              hitSlop={8}
+                            >
+                              <Icon as={Trash2} className="size-4 text-muted-foreground" />
+                            </Pressable>
                           </View>
                         ))}
                       </View>

@@ -287,7 +287,7 @@ export const GoalCard = memo(function GoalCard({
               variant="caption"
               className={`font-sans-medium ${isRecurring ? 'text-muted-foreground' : 'text-primary'}`}
             >
-              {isRecurring ? 'Recurring' : 'Finite'}
+              {isRecurring ? 'Habit' : 'Milestone'}
             </Text>
           </View>
 
@@ -300,12 +300,14 @@ export const GoalCard = memo(function GoalCard({
             </View>
           )}
 
-          {/* Target count */}
-          <View className="rounded-full border border-border px-3 py-1.5">
-            <Text variant="caption" className="font-mono text-muted-foreground">
-              {goal.targetCount}x{isRecurring ? '' : ' total'}
-            </Text>
-          </View>
+          {/* Target count (hidden for daily habits with target of 1) */}
+          {!(isRecurring && goal.timeRange === 'daily' && goal.targetCount === 1) && (
+            <View className="rounded-full border border-border px-3 py-1.5">
+              <Text variant="caption" className="font-mono text-muted-foreground">
+                {goal.targetCount}x{isRecurring ? '' : ' total'}
+              </Text>
+            </View>
+          )}
 
           {/* Streak (recurring only) */}
           {isRecurring && currentStreak > 0 && (

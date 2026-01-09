@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { View } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Toast, ToastType } from '@/components/ui/toast';
 
 interface ToastItem {
@@ -21,10 +22,15 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const insets = useSafeAreaInsets();
 
-  const showToast = useCallback((message: string, type: ToastType = 'info', duration = 3000) => {
+  const showToast = useCallback((message: string, type: ToastType = 'info', duration = 3500) => {
     const id = Date.now().toString() + Math.random().toString(36).substring(7);
-    setToasts((prev) => [...prev, { id, message, type, duration }]);
+    setToasts((prev) => {
+      // Limit to 3 toasts max for cleaner UX
+      const limited = prev.slice(-2);
+      return [...limited, { id, message, type, duration }];
+    });
   }, []);
 
   const success = useCallback((message: string, duration?: number) => {
@@ -47,10 +53,19 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
 
+  // Calculate bottom padding: safe area + some extra space for tab bar
+  const bottomPadding = Math.max(insets.bottom, 20) + 70;
+
   return (
     <ToastContext.Provider value={{ showToast, success, error, warning, info }}>
       {children}
-      <View className="absolute top-0 left-0 right-0 pt-12 z-50 pointer-events-box-none">
+      <View 
+        style={[
+          styles.container,
+          { paddingBottom: bottomPadding }
+        ]}
+        pointerEvents="box-none"
+      >
         {toasts.map((toast) => (
           <Toast
             key={toast.id}
@@ -73,3 +88,15 @@ export function useToast() {
   }
   return context;
 }
+
+const styles = StyleSheet.create({
+  container: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 9999,
+    elevation: 9999,
+    flexDirection: 'column-reverse', // Stack toasts from bottom up
+  },
+});
